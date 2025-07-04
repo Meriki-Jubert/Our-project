@@ -1,2 +1,6 @@
 Hello i am learnig how to use github 
+<<<<<<< HEAD
 how are you doing today
+=======
+wander what we are diong with github.
+>>>>>>> 1aa48d224bcca709709fc967ad748d25653dc898
