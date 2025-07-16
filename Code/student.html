@@ -1,0 +1,90 @@
+<!-- student.html --><!DOCTYPE html><html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Student Dashboard - StudentHub</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="StudentHub.css">
+</head>
+<body>
+ <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                <span>StudentHub</span>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="student.html">Dashboard</a></li>
+                    <li><a href="index.html">Home</a></li>
+                    <li><a href="Login.html">Logout</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+   <section class="dashboard student-dashboard">
+    <div class="container">
+      <h2 style="display: none;" <span id="studentName"></span></h2>
+      <h2 class="welcome-text">Welcome, <span id="userName">@username</span></h2>
+
+      
+
+  <div class="dashboard-section">
+    <h3>Your Grades</h3>
+    <table class="dashboard-table">
+      <thead>
+        <tr><th>Course</th><th>Grade</th></tr>
+      </thead>
+      <tbody id="gradesTable">
+      </tbody>
+    </table>
+  </div>
+
+ <div class="dashboard-section">
+    <h3>Report Grade Issue</h3>
+    <form id="reportForm">
+      <input type="text" id="subject" placeholder="Course" required>
+      <textarea id="message" placeholder="Describe your issue..." required></textarea>
+      <button class="btn" type="submit">Submit</button>
+    </form>
+  </div>
+</div>
+
+  </section>  
+  <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="logo" style="color: white; justify-content: center; margin-bottom: 20px;">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>StudentHub</span>
+                </div>
+                <p>Empowering educators and students with modern tools</p>
+            </div>
+            
+            <div class="footer-links">
+                <a href="Home.html">Home</a>
+                <a href="Login.html">Login</a>
+                <a href="#">About</a>
+                <a href="#" class="emailButton">Contact</a>
+            </div>
+            
+            <div class="copyright">
+                &copy; 2025 StudentHub. All rights reserved.
+            </div>
+        </div>
+    </footer>
+  <script src="student.js"></script>
+  <script>
+    // Clear localStorage and redirect on logout
+    document.querySelectorAll('a[href="Login.html"]').forEach(link => {
+        link.addEventListener('click', function (e) {
+            e.preventDefault();
+            localStorage.clear();
+            window.location.href = "Login.html";
+        });
+    });
+</script>
+</body>
+</html>
