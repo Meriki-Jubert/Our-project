@@ -56,15 +56,48 @@ function getLanIPs() {
 // ── Schema & Migration ────────────────────────────────────────────────────────
 function initDB() {
     db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS departments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL
+        )`);
         db.run(`CREATE TABLE IF NOT EXISTS courses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, credits INTEGER DEFAULT 3)`);
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            credits INTEGER DEFAULT 3
+        )`);
+        db.run(`CREATE TABLE IF NOT EXISTS department_courses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            department_id INTEGER,
+            course_id INTEGER,
+            FOREIGN KEY(department_id) REFERENCES departments(id),
+            FOREIGN KEY(course_id) REFERENCES courses(id),
+            UNIQUE(department_id, course_id)
+        )`);
         db.run(`CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL)`);
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            role TEXT NOT NULL,
+            department_id INTEGER,
+            FOREIGN KEY(department_id) REFERENCES departments(id)
+        )`);
+        db.run(`CREATE TABLE IF NOT EXISTS student_courses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER,
+            course_id INTEGER,
+            FOREIGN KEY(student_id) REFERENCES users(id),
+            FOREIGN KEY(course_id) REFERENCES courses(id),
+            UNIQUE(student_id, course_id)
+        )`);
         db.run(`CREATE TABLE IF NOT EXISTS teacher_courses (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id INTEGER, course_id INTEGER,
-            FOREIGN KEY(teacher_id) REFERENCES users(id), FOREIGN KEY(course_id) REFERENCES courses(id),
-            UNIQUE(teacher_id, course_id))`);
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            teacher_id INTEGER,
+            course_id INTEGER,
+            FOREIGN KEY(teacher_id) REFERENCES users(id),
+            FOREIGN KEY(course_id) REFERENCES courses(id),
+            UNIQUE(teacher_id, course_id)
+        )`);
         db.run(`CREATE TABLE IF NOT EXISTS student_grades (
             id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, course_id INTEGER, grade TEXT,
             FOREIGN KEY(student_id) REFERENCES users(id), FOREIGN KEY(course_id) REFERENCES courses(id),
@@ -116,18 +149,49 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// ══════════════ STUDENT ═══════════════════════════════════════════════════════
+// ══════════════ STUDENT: GET COURSES & GPA BY ENROLLMENT ══════════════════
 app.get('/api/students/:email', (req, res) => {
-    db.get(`SELECT id,name FROM users WHERE email=?`,[req.params.email],(err,user) => {
-        if (err||!user) return res.status(404).json({ message: 'Student not found' });
-        db.all(`SELECT c.name AS course, c.credits, sg.grade FROM courses c
-                LEFT JOIN student_grades sg ON sg.course_id=c.id AND sg.student_id=?
-                ORDER BY c.id`,[user.id],(_,rows) => {
+    db.get(`SELECT id, name, department_id FROM users WHERE email=?`, [req.params.email], (err, user) => {
+        if (err || !user) return res.status(404).json({ message: 'Student not found' });
+        db.all(`SELECT c.id, c.name, c.credits, sg.grade FROM student_courses sc
+                JOIN courses c ON c.id = sc.course_id
+                LEFT JOIN student_grades sg ON sg.student_id = sc.student_id AND sg.course_id = c.id
+                WHERE sc.student_id = ?`, [user.id], (err2, courses) => {
+            if (err2) return res.status(500).json({ message: 'Failed to fetch courses' });
+            // GPA calculation
+            let totalQP = 0, totalCreds = 0;
+            const GRADE_POINTS = {
+                'A+': 4.0, 'A': 4.0, 'A-': 3.7,
+                'B+': 3.3, 'B': 3.0, 'B-': 2.7,
+                'C+': 2.3, 'C': 2.0, 'C-': 1.7,
+                'D+': 1.3, 'D': 1.0, 'D-': 0.7,
+                'E+': 0.5, 'E': 0.3, 'E-': 0.1,
+                'F+': 0.0, 'F': 0.0, 'F-': 0.0
+            };
             const grades = {};
-            rows.forEach(r => { grades[r.course] = { grade: r.grade||'', credits: r.credits||3 }; });
-            const graded = rows.filter(r=>r.grade).map(r=>({ grade:r.grade, credits:r.credits||3 }));
-            const gpa = calculateGPA(graded);
-            res.json({ name: user.name, grades, gpa, gpaClass: gpa!==null ? gpaClassification(gpa) : null });
+            courses.forEach(row => {
+                grades[row.name] = { grade: row.grade || '—', credits: row.credits };
+                if (row.grade && GRADE_POINTS[row.grade]) {
+                    totalQP += GRADE_POINTS[row.grade] * row.credits;
+                    totalCreds += row.credits;
+                }
+            });
+            const gpa = totalCreds ? parseFloat((totalQP / totalCreds).toFixed(2)) : null;
+            let gpaClass = null;
+            if (gpa !== null) {
+                if (gpa >= 3.5) gpaClass = 'First Class / Distinction';
+                else if (gpa >= 3.0) gpaClass = 'Second Class Upper / Merit';
+                else if (gpa >= 2.0) gpaClass = 'Second Class Lower / Pass';
+                else gpaClass = 'Fail';
+            }
+            res.json({
+                id: user.id,
+                name: user.name,
+                department_id: user.department_id,
+                grades,
+                gpa,
+                gpaClass
+            });
         });
     });
 });
@@ -292,6 +356,43 @@ app.delete('/api/admin/feedback/:id', (req,res) => {
 app.delete('/api/admin/feedback', (req,res) => {
     db.run(`DELETE FROM grade_issues`, err => {
         if (err) return res.status(500).json({message:'Failed'}); res.json({message:'Cleared'});
+    });
+});
+
+// ── DEPARTMENT & COURSE ADMIN API ───────────────────────────────
+// Get all departments
+app.get('/api/departments', (req, res) => {
+    db.all('SELECT * FROM departments ORDER BY name', [], (err, rows) => {
+        if (err) return res.status(500).json({ message: 'Failed to fetch departments' });
+        res.json(rows);
+    });
+});
+// Get courses for a department
+app.get('/api/departments/:id/courses', (req, res) => {
+    db.all(`SELECT c.id, c.name, c.credits FROM courses c
+            INNER JOIN department_courses dc ON dc.course_id = c.id
+            WHERE dc.department_id = ? ORDER BY c.name`,
+        [req.params.id], (err, rows) => {
+        if (err) return res.status(500).json({ message: 'Failed to fetch courses' });
+        res.json(rows);
+    });
+});
+// Add department
+app.post('/api/admin/departments', (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: 'Department name required' });
+    db.run('INSERT INTO departments (name) VALUES (?)', [name], function (err) {
+        if (err) return res.status(500).json({ message: 'Failed to add department' });
+        res.json({ id: this.lastID, name });
+    });
+});
+// Add course to department
+app.post('/api/admin/department-courses', (req, res) => {
+    const { departmentId, courseId } = req.body;
+    if (!departmentId || !courseId) return res.status(400).json({ message: 'Missing department or course' });
+    db.run('INSERT OR IGNORE INTO department_courses (department_id, course_id) VALUES (?, ?)', [departmentId, courseId], function (err) {
+        if (err) return res.status(500).json({ message: 'Failed to assign course' });
+        res.json({ success: true });
     });
 });
 

@@ -94,17 +94,42 @@
     </div>
   </section>
 
-  <!-- ── COURSE MANAGEMENT ───────────────────────────────────────────────── -->
+  <!-- ── DEPARTMENT MANAGEMENT ───────────────────────────────────────────── -->
+  <section class="admin-card">
+    <div class="admin-card-header">
+      <h2><i class="fas fa-building"></i> Department Management</h2>
+      <button class="btn btn-sm btn-success" id="toggleAddDept"><i class="fas fa-plus"></i> Add Department</button>
+    </div>
+    <div id="addDeptForm" class="admin-form hidden">
+      <div class="admin-form-grid">
+        <div class="form-group-inline"><label>Department Name</label><input type="text" id="newDeptName" placeholder="e.g. Software Engineering"></div>
+      </div>
+      <div style="text-align:right;margin-top:12px;gap:8px;display:flex;justify-content:flex-end">
+        <button class="btn btn-sm btn-ghost" id="cancelAddDept">Cancel</button>
+        <button class="btn btn-sm btn-success" id="confirmAddDept"><i class="fas fa-check"></i> Create Department</button>
+      </div>
+    </div>
+    <div style="overflow-x:auto">
+      <table class="dashboard-table admin-table">
+        <thead><tr><th>#</th><th>Department</th><th>Actions</th></tr></thead>
+        <tbody id="departmentsTableBody"><tr><td colspan="3" class="table-loading">Loading departments…</td></tr></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ── COURSE MANAGEMENT ───────────────────────────────────────────── -->
   <section class="admin-card">
     <div class="admin-card-header">
       <h2><i class="fas fa-book-open"></i> Course Management</h2>
       <button class="btn btn-sm btn-success" id="toggleAddCourse"><i class="fas fa-plus"></i> Add Course</button>
     </div>
-
     <div id="addCourseForm" class="admin-form hidden">
       <div class="admin-form-grid">
         <div class="form-group-inline"><label>Course Title</label><input type="text" id="newCourseName" placeholder="e.g. Data Structures"></div>
         <div class="form-group-inline"><label>Credit Hours</label><input type="number" id="newCourseCredits" value="3" min="1" max="6"></div>
+        <div class="form-group-inline"><label>Department</label>
+          <select id="newCourseDept"></select>
+        </div>
         <div class="form-group-inline" style="grid-column:span 2">
           <label>Assign Teacher <span style="font-weight:400;color:#aaa">(optional)</span></label>
           <div class="teacher-search-wrap">
@@ -119,11 +144,10 @@
         <button class="btn btn-sm btn-success" id="confirmAddCourse"><i class="fas fa-check"></i> Create Course</button>
       </div>
     </div>
-
     <div style="overflow-x:auto">
       <table class="dashboard-table admin-table">
-        <thead><tr><th>#</th><th>Course Title</th><th>Credits</th><th>Assigned Teacher</th><th>Students Graded</th><th>Actions</th></tr></thead>
-        <tbody id="coursesTableBody"><tr><td colspan="6" class="table-loading">Loading courses…</td></tr></tbody>
+        <thead><tr><th>#</th><th>Course Title</th><th>Credits</th><th>Department</th><th>Assigned Teacher</th><th>Students Graded</th><th>Actions</th></tr></thead>
+        <tbody id="coursesTableBody"><tr><td colspan="7" class="table-loading">Loading courses…</td></tr></tbody>
       </table>
     </div>
   </section>
@@ -184,6 +208,9 @@
       <div class="admin-form-grid">
         <div class="form-group-inline"><label>Course Title</label><input type="text" id="editCourseName"></div>
         <div class="form-group-inline"><label>Credit Hours</label><input type="number" id="editCourseCredits" min="1" max="6"></div>
+        <div class="form-group-inline"><label>Department</label>
+          <select id="editCourseDept"></select>
+        </div>
         <div class="form-group-inline" style="grid-column:span 2">
           <label>Assign Teacher</label>
           <div class="teacher-search-wrap">
@@ -461,17 +488,19 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function loadCourses() {
     const courses = await fetch('/api/admin/courses').then(r=>r.json());
     const tbody = document.getElementById('coursesTableBody');
-    if (!courses.length) { tbody.innerHTML='<tr><td colspan="6" class="table-loading">No courses found.</td></tr>'; return; }
+    if (!courses.length) { tbody.innerHTML='<tr><td colspan="7" class="table-loading">No courses found.</td></tr>'; return; }
     tbody.innerHTML = courses.map((c,i) => `
       <tr>
         <td>${i+1}</td>
         <td><strong>${c.name}</strong></td>
         <td><span class="credit-badge">${c.credits||3} cr</span></td>
+        <td>${c.department||'<em style="color:#bbb">Unassigned</em>'}</td>
         <td>${c.teachers||'<em style="color:#bbb">Unassigned</em>'}</td>
         <td><span class="count-pill">${c.graded}</span></td>
         <td style="display:flex;gap:6px;flex-wrap:wrap">
           <button class="btn btn-sm edit-course-btn"
             data-id="${c.id}" data-name="${c.name}" data-credits="${c.credits||3}"
+            data-dept-id="${c.department_id||''}" data-dept-name="${c.department||''}"
             data-teacher-id="${c.teacher_ids||''}" data-teacher-name="${c.teachers||''}"
             style="background:linear-gradient(to right,#4361ee,#3a0ca3)">
             <i class="fas fa-edit"></i> Edit
@@ -503,24 +532,27 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('confirmAddCourse').addEventListener('click', async () => {
     const name      = document.getElementById('newCourseName').value.trim();
     const credits   = parseInt(document.getElementById('newCourseCredits').value)||3;
+    const departmentId = document.getElementById('newCourseDept').value;
     const teacherId = addTeacherDD.getId()||null;
     if (!name) return alert('Course title is required.');
     const r = await fetch('/api/admin/courses',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,credits,teacherId})});
+      body:JSON.stringify({name,credits,departmentId,teacherId})});
     const d = await r.json();
     if (!r.ok) return alert(d.message||'Failed to create course.');
     document.getElementById('newCourseName').value='';
     document.getElementById('newCourseCredits').value='3';
+    document.getElementById('newCourseDept').value='';
     addTeacherDD.set('','');
     document.getElementById('addCourseForm').classList.add('hidden');
     loadCourses(); loadStats();
   });
 
   // Edit Course Modal
-  function openEditCourse({id,name,credits,teacherId,teacherName}) {
+  function openEditCourse({id,name,credits,departmentId,departmentName,teacherId,teacherName}) {
     document.getElementById('editCourseId').value      = id;
     document.getElementById('editCourseName').value    = name;
     document.getElementById('editCourseCredits').value = credits;
+    document.getElementById('editCourseDept').value    = departmentId;
     // teacher_ids may be comma-separated if multiple; take first
     const firstTeacherId   = (teacherId||'').split(',')[0].trim();
     const firstTeacherName = (teacherName||'').split(',')[0].trim();
@@ -537,13 +569,55 @@ document.addEventListener('DOMContentLoaded', async () => {
     const id        = document.getElementById('editCourseId').value;
     const name      = document.getElementById('editCourseName').value.trim();
     const credits   = parseInt(document.getElementById('editCourseCredits').value)||3;
+    const departmentId = document.getElementById('editCourseDept').value;
     const teacherId = editTeacherDD.getId()||null;
     if (!name) return alert('Course title is required.');
     const r = await fetch(`/api/admin/courses/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,credits,teacherId})});
+      body:JSON.stringify({name,credits,departmentId,teacherId})});
     const d = await r.json();
     if (!r.ok) return alert(d.message||'Update failed.');
     closeEditCourse(); loadCourses();
+  });
+
+  // ── DEPARTMENTS ───────────────────────────────────────────────────────────
+  async function loadDepartments() {
+    const depts = await fetch('/api/departments').then(r=>r.json());
+    // Department table
+    const tbody = document.getElementById('departmentsTableBody');
+    if (!depts.length) { tbody.innerHTML = '<tr><td colspan="3" class="table-loading">No departments found.</td></tr>'; return; }
+    tbody.innerHTML = depts.map((d,i) => `
+      <tr>
+        <td>${i+1}</td>
+        <td>${d.name}</td>
+        <td><button class="btn btn-sm btn-danger delete-dept-btn" data-id="${d.id}" data-name="${d.name}"><i class="fas fa-trash"></i> Delete</button></td>
+      </tr>`).join('');
+    tbody.querySelectorAll('.delete-dept-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm(`Delete department "${btn.dataset.name}"? This cannot be undone.`)) return;
+        const r = await fetch(`/api/admin/departments/${btn.dataset.id}`, {method:'DELETE'});
+        if (r.ok) loadDepartments();
+        else alert('Failed to delete department.');
+      });
+    });
+    // Department dropdown for course creation
+    const deptSel = document.getElementById('newCourseDept');
+    if (deptSel) {
+      deptSel.innerHTML = '<option value="">Select department</option>' +
+        depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+    }
+  }
+  document.getElementById('toggleAddDept').addEventListener('click', () =>
+    document.getElementById('addDeptForm').classList.toggle('hidden'));
+  document.getElementById('cancelAddDept').addEventListener('click', () =>
+    document.getElementById('addDeptForm').classList.add('hidden'));
+  document.getElementById('confirmAddDept').addEventListener('click', async () => {
+    const name = document.getElementById('newDeptName').value.trim();
+    if (!name) return alert('Department name required.');
+    const r = await fetch('/api/admin/departments', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
+    if (!r.ok) return alert('Failed to add department.');
+    document.getElementById('newDeptName').value = '';
+    document.getElementById('addDeptForm').classList.add('hidden');
+    loadDepartments();
   });
 
   // ── FEEDBACK ──────────────────────────────────────────────────────────────
@@ -575,7 +649,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   });
 
   // ── INIT ──────────────────────────────────────────────────────────────────
-  await Promise.all([loadStats(), loadUsers(), loadCourses(), loadFeedback()]);
+  await Promise.all([loadStats(), loadUsers(), loadCourses(), loadDepartments(), loadFeedback()]);
 });
 </script>
 </body>

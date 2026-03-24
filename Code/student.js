@@ -62,7 +62,54 @@ roleSelect?.addEventListener("change", function () {
     courseGroup.classList.toggle("hidden", this.value.toLowerCase() !== "teacher");
 });
 
-// Signup
+// ── SIGNUP: Dynamic department and course selection for students ──
+const signupRole = document.getElementById('signupRole');
+const departmentGroup = document.getElementById('departmentGroup');
+const studentCourseGroup = document.getElementById('studentCourseGroup');
+const signupDepartment = document.getElementById('signupDepartment');
+const studentCourseList = document.getElementById('studentCourseList');
+
+async function loadDepartments() {
+  const res = await fetch('/api/departments');
+  const depts = await res.json();
+  signupDepartment.innerHTML = '<option value="">Select department</option>' +
+    depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
+}
+
+async function loadCoursesForDept(deptId) {
+  const res = await fetch(`/api/departments/${deptId}/courses`);
+  const courses = await res.json();
+  studentCourseList.innerHTML = courses.map(c =>
+    `<label><input type="checkbox" name="studentCourses" value="${c.id}"> ${c.name} (${c.credits} cr)</label>`
+  ).join('<br>');
+}
+
+if (signupRole) {
+  signupRole.addEventListener('change', function () {
+    const role = this.value.toLowerCase();
+    if (role === 'student') {
+      departmentGroup.classList.remove('hidden');
+      studentCourseGroup.classList.remove('hidden');
+      loadDepartments();
+      document.getElementById('courseGroup').classList.add('hidden');
+    } else if (role === 'teacher') {
+      departmentGroup.classList.add('hidden');
+      studentCourseGroup.classList.add('hidden');
+      document.getElementById('courseGroup').classList.remove('hidden');
+    } else {
+      departmentGroup.classList.add('hidden');
+      studentCourseGroup.classList.add('hidden');
+      document.getElementById('courseGroup').classList.add('hidden');
+    }
+  });
+}
+
+signupDepartment?.addEventListener('change', function () {
+  const deptId = this.value;
+  if (deptId) loadCoursesForDept(deptId);
+  else studentCourseList.innerHTML = '';
+});
+
 signupForm?.addEventListener('submit', async e => {
     e.preventDefault();
     const name = document.getElementById('signupName').value.trim();
@@ -70,27 +117,29 @@ signupForm?.addEventListener('submit', async e => {
     const password = passwordInput.value.trim();
     const confirmPassword = confirmInput.value.trim();
     const role = roleSelect.value.toLowerCase();
-    const courses = role === 'teacher'
-        ? Array.from(document.querySelectorAll('input[name="courses"]:checked')).map(cb => cb.value)
-        : [];
-
+    let departmentId = null, courses = [];
+    if (role === 'student') {
+      departmentId = signupDepartment.value;
+      courses = Array.from(document.querySelectorAll('input[name="studentCourses"]:checked')).map(cb => cb.value);
+      if (!departmentId || courses.length === 0) {
+        alert('Please select your department and at least one course.');
+        return;
+      }
+    } else if (role === 'teacher') {
+      courses = Array.from(document.querySelectorAll('input[name="courses"]:checked')).map(cb => cb.value);
+    }
     if (password !== confirmPassword) {
         confirmInput.style.borderColor = 'red';
         confirmInput.style.boxShadow = '0 0 5px red';
         return;
     }
-
     const res = await fetch('/api/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, email, password, role, courses })
+        body: JSON.stringify({ name, email, password, role, departmentId, courses })
     });
-
     const data = await res.json();
-    if (!res.ok) 
-        return 
-    alert(data.message || 'Signup failed');
-
+    if (!res.ok) return alert(data.message || 'Signup failed');
     const loginRes = await fetch('/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -98,7 +147,6 @@ signupForm?.addEventListener('submit', async e => {
     });
     const loginData = await loginRes.json();
     if (!loginRes.ok) return alert(loginData.message || 'Login failed after signup');
-
     localStorage.setItem('currentUser', JSON.stringify(loginData.user));
     const _r1=loginData.user.role; window.location.href=_r1==='teacher'?'teacher.html':_r1==='admin'?'admin.html':'student.html';
 });
