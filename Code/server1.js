@@ -1,421 +1,322 @@
-// server.js
+// server1.js — StudentHub Backend
+const express  = require('express');
+const sqlite3  = require('sqlite3').verbose();
+const path     = require('path');
+const cors     = require('cors');
+const os       = require('os');
 
-const express = require('express');
-const sqlite3 = require('sqlite3').verbose();
-const path = require('path');
-const cors = require('cors');
-
-const app = express();
+const app  = express();
 const PORT = 3000;
 
-// ===== Middleware =====
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-// ===== Database Setup =====
-const db = new sqlite3.Database('./studenthub.db', (err) => {
-    if (err) return console.error('Database connection error:', err.message);
+const db = new sqlite3.Database('./studenthub.db', err => {
+    if (err) return console.error('DB error:', err.message);
     console.log('Connected to SQLite database');
 });
 
-// ===== Create Tables =====
-const createTables = () => {
-    db.run(`CREATE TABLE IF NOT EXISTS courses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT UNIQUE NOT NULL
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE NOT NULL,
-        password TEXT NOT NULL,
-        role TEXT NOT NULL
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS teacher_courses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        teacher_id INTEGER,
-        course_id INTEGER,
-        FOREIGN KEY(teacher_id) REFERENCES users(id),
-        FOREIGN KEY(course_id) REFERENCES courses(id)
-    )`);
-
-    db.run(`CREATE TABLE IF NOT EXISTS student_grades (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        student_id INTEGER,
-        course_id INTEGER,
-        grade TEXT,
-        FOREIGN KEY(student_id) REFERENCES users(id),
-        FOREIGN KEY(course_id) REFERENCES courses(id),
-        UNIQUE(student_id, course_id)
-    )`);
-
-    db.run( `CREATE TABLE IF NOT EXISTS grade_issues (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  student_id INTEGER NOT NULL,
-  student_name TEXT NOT NULL,
-  subject TEXT NOT NULL,
-  message TEXT NOT NULL,
-  reported_at TEXT NOT NULL
-)`);
+// GPA: standard 4.0 scale
+const GRADE_POINTS = {
+    'A+': 4.0, 'A': 4.0, 'A-': 3.7,
+    'B+': 3.3, 'B': 3.0, 'B-': 2.7,
+    'C+': 2.3, 'C': 2.0, 'C-': 1.7,
+    'D+': 1.3, 'D': 1.0, 'D-': 0.7,
+    'E+': 0.5, 'E': 0.3, 'E-': 0.1,
+    'F+': 0.0, 'F': 0.0, 'F-': 0.0
 };
 
-createTables();
+function gpaClassification(gpa) {
+    if (gpa >= 3.5) return 'First Class / Distinction';
+    if (gpa >= 3.0) return 'Second Class Upper / Merit';
+    if (gpa >= 2.0) return 'Second Class Lower / Pass';
+    return 'Fail';
+}
 
-const staticCourses = [
-    "Architecture",
-    "Basic Environment II",
-    "Database & MERISE",
-    "Engineering Maths",
-    "Economics & Enterprise Organization",
-    "General Accounting",
-    "Maintenance and Legal Regulations",
-    "Programming I"
-];
+function calculateGPA(rows) {
+    let totalQP = 0, totalCreds = 0;
+    rows.forEach(({ grade, credits }) => {
+        if (!grade || !credits) return;
+        const pts = GRADE_POINTS[grade.trim().toUpperCase()];
+        if (pts !== undefined) { totalQP += pts * credits; totalCreds += credits; }
+    });
+    if (totalCreds === 0) return null;
+    return parseFloat((totalQP / totalCreds).toFixed(2));
+}
 
-function insertStaticCourses() {
-    staticCourses.forEach(course => {
-        db.run(`INSERT OR IGNORE INTO courses (name) VALUES (?)`, [course]);
+function getLanIPs() {
+    const ips = [];
+    Object.values(os.networkInterfaces()).forEach(iface => {
+        iface.forEach(d => { if (d.family === 'IPv4' && !d.internal) ips.push(d.address); });
+    });
+    return ips;
+}
+
+// ── Schema & Migration ────────────────────────────────────────────────────────
+function initDB() {
+    db.serialize(() => {
+        db.run(`CREATE TABLE IF NOT EXISTS courses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL, credits INTEGER DEFAULT 3)`);
+        db.run(`CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL, password TEXT NOT NULL, role TEXT NOT NULL)`);
+        db.run(`CREATE TABLE IF NOT EXISTS teacher_courses (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id INTEGER, course_id INTEGER,
+            FOREIGN KEY(teacher_id) REFERENCES users(id), FOREIGN KEY(course_id) REFERENCES courses(id),
+            UNIQUE(teacher_id, course_id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS student_grades (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, course_id INTEGER, grade TEXT,
+            FOREIGN KEY(student_id) REFERENCES users(id), FOREIGN KEY(course_id) REFERENCES courses(id),
+            UNIQUE(student_id, course_id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS grade_issues (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL,
+            student_name TEXT NOT NULL, subject TEXT NOT NULL,
+            message TEXT NOT NULL, reported_at TEXT NOT NULL)`);
+        db.run(`ALTER TABLE courses ADD COLUMN credits INTEGER DEFAULT 3`, () => {});
     });
 }
-insertStaticCourses();
+initDB();
 
-// ===== Routes =====
+const STATIC_COURSES = ["Architecture","Basic Environment II","Database & MERISE",
+    "Engineering Maths","Economics & Enterprise Organization","General Accounting",
+    "Maintenance and Legal Regulations","Programming I"];
+STATIC_COURSES.forEach(name => db.run(`INSERT OR IGNORE INTO courses (name,credits) VALUES (?,3)`,[name]));
 
-// Signup
+// ══════════════ AUTH ══════════════════════════════════════════════════════════
 app.post('/api/signup', (req, res) => {
     const { name, email, password, role, courses = [] } = req.body;
-    db.run(
-        `INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`,
-        [name, email, password, role],
-        function (err) {
-            if (err) return res.status(400).json({ message: 'User already exists or error occurred.' });
-            const userId = this.lastID;
-
-            if (role === 'teacher') {
-                const stmt = db.prepare(`INSERT INTO teacher_courses (teacher_id, course_id) VALUES (?, ?)`);
-                let remaining = courses.length;
-
-                courses.forEach(courseName => {
-                    db.get(`SELECT id FROM courses WHERE name = ?`, [courseName], (err, row) => {
-                        if (row) stmt.run(userId, row.id);
-                        remaining--;
-                        if (remaining === 0) {
-                            stmt.finalize();
-                        }
-                    });
-                });
-
-                if (courses.length === 0) {
-                    stmt.finalize();
-                }
-            }
-
-            res.json({ message: 'Signup successful' });
-        }
-    );
-});
-
-// Login
-app.post('/api/login', (req, res) => {
-    const { email, password } = req.body;
-    db.get(
-        `SELECT * FROM users WHERE email = ? AND password = ?`,
-        [email, password],
-        (err, user) => {
-            if (err || !user) return res.status(400).json({ message: 'Invalid credentials' });
-
-            if (user.role === 'teacher') {
-                db.all(
-                    `SELECT c.name AS course
-                     FROM courses c
-                     JOIN teacher_courses tc ON c.id = tc.course_id
-                     WHERE tc.teacher_id = ?`,
-                    [user.id],
-                    (err, rows) => {
-                        if (err) return res.status(500).json({ message: 'Failed to fetch teacher courses' });
-                        const courses = rows.map(row => row.course);
-                        res.json({ user: { ...user, courses } });
-                    }
-                );
-            } else {
-                res.json({ user });
-            }
-        }
-    );
-});
-
-// Get student grades by email
-app.get('/api/students/:email', (req, res) => {
-    const email = req.params.email;
-    db.get(
-        `SELECT id, name FROM users WHERE email = ?`,
-        [email],
-        (err, user) => {
-            if (err || !user) return res.status(404).json({ message: 'Student not found' });
-
-            db.all(
-                `SELECT c.name as course, sg.grade
-                 FROM courses c
-                 LEFT JOIN student_grades sg ON sg.course_id = c.id AND sg.student_id = ?
-                 ORDER BY c.id`,
-                [user.id],
-                (err, rows) => {
-                    if (err) return res.status(500).json({ message: 'Failed to retrieve grades' });
-                    const grades = {};
-                    rows.forEach(row => { grades[row.course] = row.grade || ''; });
-                    res.json({ name: user.name, grades });
-                }
-            );
-        }
-    );
-});
-
-// Get students by course
-app.get('/api/students', (req, res) => {
-    const course = req.query.course;
-
-    db.get(`SELECT id FROM courses WHERE name = ?`, [course], (err, courseRow) => {
-        if (err || !courseRow) return res.status(400).json({ message: 'Course not found' });
-        const courseId = courseRow.id;
-
-        db.all(`SELECT id, name FROM users WHERE role = 'student'`, [], (err, students) => {
-            if (err) return res.status(500).json({ message: 'Failed to get students' });
-
-            const promises = students.map(student => {
-                return new Promise(resolve => {
-                    db.get(
-                        `SELECT grade FROM student_grades WHERE student_id = ? AND course_id = ?`,
-                        [student.id, courseId],
-                        (err, row) => {
-                            resolve({
-                                id: student.id,
-                                name: student.name,
-                                grades: { [course]: row ? row.grade : '' }
-                            });
-                        }
-                    );
+    db.run(`INSERT INTO users (name,email,password,role) VALUES (?,?,?,?)`,
+        [name,email,password,role], function(err) {
+        if (err) return res.status(400).json({ message: 'User already exists or error.' });
+        const uid = this.lastID;
+        if (role === 'teacher' && courses.length > 0) {
+            const stmt = db.prepare(`INSERT OR IGNORE INTO teacher_courses (teacher_id,course_id) VALUES (?,?)`);
+            let rem = courses.length;
+            courses.forEach(cname => {
+                db.get(`SELECT id FROM courses WHERE name=?`,[cname],(_,row) => {
+                    if (row) stmt.run(uid, row.id);
+                    if (--rem === 0) stmt.finalize();
                 });
             });
+        }
+        res.json({ message: 'Signup successful' });
+    });
+});
 
-            Promise.all(promises).then(results => res.json(results));
+app.post('/api/login', (req, res) => {
+    const { email, password } = req.body;
+    db.get(`SELECT * FROM users WHERE email=? AND password=?`,[email,password],(err,user) => {
+        if (err||!user) return res.status(400).json({ message: 'Invalid credentials' });
+        if (user.role === 'teacher') {
+            db.all(`SELECT c.name AS course FROM courses c
+                JOIN teacher_courses tc ON c.id=tc.course_id WHERE tc.teacher_id=?`,[user.id],
+                (_,rows) => res.json({ user: { ...user, courses: rows.map(r=>r.course) } }));
+        } else { res.json({ user }); }
+    });
+});
+
+// ══════════════ STUDENT ═══════════════════════════════════════════════════════
+app.get('/api/students/:email', (req, res) => {
+    db.get(`SELECT id,name FROM users WHERE email=?`,[req.params.email],(err,user) => {
+        if (err||!user) return res.status(404).json({ message: 'Student not found' });
+        db.all(`SELECT c.name AS course, c.credits, sg.grade FROM courses c
+                LEFT JOIN student_grades sg ON sg.course_id=c.id AND sg.student_id=?
+                ORDER BY c.id`,[user.id],(_,rows) => {
+            const grades = {};
+            rows.forEach(r => { grades[r.course] = { grade: r.grade||'', credits: r.credits||3 }; });
+            const graded = rows.filter(r=>r.grade).map(r=>({ grade:r.grade, credits:r.credits||3 }));
+            const gpa = calculateGPA(graded);
+            res.json({ name: user.name, grades, gpa, gpaClass: gpa!==null ? gpaClassification(gpa) : null });
         });
     });
 });
-// Update student's grade for a specific course
-app.put('/api/students/:studentId/grades', (req, res) => {
-  const { studentId } = req.params;
-  const { course, grade } = req.body;
 
-  const sql = `UPDATE grades SET grade = ? WHERE student_id = ? AND course = ?`;
-  const params = [grade, studentId, course];
-
-  db.run(sql, params, function (err) {
-    if (err) {
-      return res.status(500).json({ error: err.message });
-    }
-    if (this.changes === 0) {
-      return res.status(404).json({ error: 'Grade or course not found' });
-    }
-    res.json({ message: 'Grade updated successfully' });
-  });
-});
-// Update student grade
-app.put('/api/students/:id', (req, res) => {
-    const studentId = req.params.id;
-    const { course, grade } = req.body;
-
-    db.get(`SELECT id FROM courses WHERE name = ?`, [course], (err, row) => {
-        if (!row) return res.status(400).json({ message: 'Course not found' });
-        const courseId = row.id;
-
-        db.run(
-            `INSERT INTO student_grades (student_id, course_id, grade)
-             VALUES (?, ?, ?)
-             ON CONFLICT(student_id, course_id) DO UPDATE SET grade = excluded.grade`,
-            [studentId, courseId, grade],
-            function (err) {
-                if (err) return res.status(500).json({ message: 'Failed to update grade' });
-                res.json({ message: 'Grade updated successfully' });
-            }
-        );
+app.get('/api/students', (req, res) => {
+    const course = req.query.course;
+    db.get(`SELECT id FROM courses WHERE name=?`,[course],(err,cRow) => {
+        if (err||!cRow) return res.status(400).json({ message: 'Course not found' });
+        db.all(`SELECT id,name FROM users WHERE role='student'`,[],(_,students) => {
+            const p = students.map(s => new Promise(resolve => {
+                db.get(`SELECT grade FROM student_grades WHERE student_id=? AND course_id=?`,
+                    [s.id,cRow.id],(_,row) => resolve({ id:s.id, name:s.name, grades:{ [course]: row?.grade||'' } }));
+            }));
+            Promise.all(p).then(r => res.json(r));
+        });
     });
 });
 
-// Report Grade Issue (Student Complaints)
+app.put('/api/students/:id', (req, res) => {
+    const { course, grade } = req.body;
+    db.get(`SELECT id FROM courses WHERE name=?`,[course],(_,row) => {
+        if (!row) return res.status(400).json({ message: 'Course not found' });
+        db.run(`INSERT INTO student_grades (student_id,course_id,grade) VALUES (?,?,?)
+                ON CONFLICT(student_id,course_id) DO UPDATE SET grade=excluded.grade`,
+            [req.params.id,row.id,grade], err => {
+                if (err) return res.status(500).json({ message: 'Failed' });
+                res.json({ message: 'Grade updated' });
+            });
+    });
+});
+
 app.post('/api/report-issue', (req, res) => {
     const { studentId, subject, message } = req.body;
-
-    if (!studentId || !subject || !message) {
-        return res.status(400).json({ error: 'Missing fields' });
-    }
-
-    db.get(`SELECT name FROM users WHERE id = ?`, [studentId], (err, row) => {
-        if (err || !row) {
-            return res.status(404).json({ error: 'Student not found' });
-        }
-
-        const studentName = row.name;
-        const reportedAt = new Date().toISOString();
-
-        db.run(
-            `INSERT INTO grade_issues (student_id, student_name, subject, message, reported_at)
-             VALUES (?, ?, ?, ?, ?)`,
-            [studentId, studentName, subject, message, reportedAt],
-            function (err) {
-                if (err) {
-                    return res.status(500).json({ error: 'Failed to record issue' });
-                }
-                res.json({ message: 'Grade issue reported successfully' });
-            }
-        );
+    if (!studentId||!subject||!message) return res.status(400).json({ error: 'Missing fields' });
+    db.get(`SELECT name FROM users WHERE id=?`,[studentId],(_,row) => {
+        if (!row) return res.status(404).json({ error: 'Student not found' });
+        db.run(`INSERT INTO grade_issues (student_id,student_name,subject,message,reported_at) VALUES (?,?,?,?,?)`,
+            [studentId,row.name,subject,message,new Date().toISOString()], err => {
+                if (err) return res.status(500).json({ error: 'Failed' });
+                res.json({ message: 'Issue reported' });
+            });
     });
 });
 
-// Get complaints (grade issues) filtered by courses
+// ══════════════ TEACHER / COMPLAINTS ═════════════════════════════════════════
 app.get('/api/complaints', (req, res) => {
-    const coursesParam = req.query.courses; // Comma-separated course names
-    if (!coursesParam) {
-        return res.status(400).json({ message: 'Courses query parameter is required' });
-    }
-
-    const courses = coursesParam.split(',').map(c => c.trim());
-
-    // We'll fetch complaints where the subject matches any of the courses the teacher teaches
-    const placeholders = courses.map(() => '?').join(',');
-
-    const sql = `
-      SELECT id, student_id, student_name, subject, message, reported_at
-      FROM grade_issues
-      WHERE subject IN (${placeholders})
-      ORDER BY reported_at DESC
-    `;
-
-    db.all(sql, courses, (err, rows) => {
-        if (err) {
-            return res.status(500).json({ message: 'Failed to fetch complaints' });
-        }
-        res.json(rows);
+    const courses = (req.query.courses||'').split(',').map(c=>c.trim()).filter(Boolean);
+    if (!courses.length) return res.status(400).json({ message: 'courses param required' });
+    const ph = courses.map(()=>'?').join(',');
+    db.all(`SELECT id,student_id,student_name,subject,message,reported_at FROM grade_issues
+            WHERE subject IN (${ph}) ORDER BY reported_at DESC`, courses,
+        (err,rows) => { if (err) return res.status(500).json({ message:'Failed' }); res.json(rows); });
+});
+app.delete('/api/complaints/:id', (req,res) => {
+    db.run(`DELETE FROM grade_issues WHERE id=?`,[req.params.id], function(err) {
+        if (err) return res.status(500).json({message:'Failed'});
+        if (this.changes===0) return res.status(404).json({message:'Not found'});
+        res.json({message:'Deleted'});
+    });
+});
+app.delete('/api/complaints', (req,res) => {
+    db.run(`DELETE FROM grade_issues`, err => {
+        if (err) return res.status(500).json({message:'Failed'}); res.json({message:'Cleared'});
     });
 });
 
-// Delete a single complaint by id
-app.delete('/api/complaints/:id', (req, res) => {
+// ══════════════ ADMIN ═════════════════════════════════════════════════════════
+app.get('/api/admin/stats', (req,res) => {
+    db.get(`SELECT (SELECT COUNT(*) FROM users WHERE role='student') AS students,
+            (SELECT COUNT(*) FROM users WHERE role='teacher') AS teachers,
+            (SELECT COUNT(*) FROM courses) AS courses,
+            (SELECT COUNT(*) FROM grade_issues) AS feedback`,
+        [], (err,row) => { if(err) return res.status(500).json({message:'Failed'}); res.json(row); });
+});
+
+app.get('/api/admin/users', (req,res) => {
+    db.all(`SELECT id,name,email,role FROM users ORDER BY role,name`,[],
+        (err,rows) => { if(err) return res.status(500).json({message:'Failed'}); res.json(rows); });
+});
+app.put('/api/admin/users/:id', (req,res) => {
+    const { name, email, role } = req.body;
+    if (!name||!email||!role) return res.status(400).json({message:'Missing fields'});
+    db.run(`UPDATE users SET name=?,email=?,role=? WHERE id=?`,[name,email,role,req.params.id], function(err) {
+        if (err) return res.status(500).json({message:'Update failed. Email may exist.'});
+        if (this.changes===0) return res.status(404).json({message:'Not found'});
+        if (role!=='teacher') db.run(`DELETE FROM teacher_courses WHERE teacher_id=?`,[req.params.id]);
+        res.json({message:'Updated'});
+    });
+});
+app.delete('/api/admin/users/:id', (req,res) => {
     const id = req.params.id;
-    db.run(`DELETE FROM grade_issues WHERE student_id = ?`, [id], function(err) {
-        if (err) return res.status(500).json({ message: 'Failed to delete complaint' });
-        if (this.changes === 0) return res.status(404).json({ message: 'Complaint not found' });
-        res.json({ message: 'Complaint deleted successfully' });
+    db.run(`DELETE FROM users WHERE id=?`,[id], function(err) {
+        if (err) return res.status(500).json({message:'Failed'});
+        if (this.changes===0) return res.status(404).json({message:'Not found'});
+        db.run(`DELETE FROM teacher_courses WHERE teacher_id=?`,[id]);
+        db.run(`DELETE FROM student_grades WHERE student_id=?`,[id]);
+        db.run(`DELETE FROM grade_issues WHERE student_id=?`,[id]);
+        res.json({message:'Deleted'});
     });
 });
 
-// Delete all complaints
-app.delete('/api/complaints', (req, res) => {
-    db.run(`DELETE FROM grade_issues`, function(err) {
-        if (err) return res.status(500).json({ message: 'Failed to delete complaints' });
-        res.json({ message: 'All complaints deleted successfully' });
-    });
+app.get('/api/admin/teachers', (req,res) => {
+    db.all(`SELECT id,name,email FROM users WHERE role='teacher' ORDER BY name`,[],
+        (err,rows) => { if(err) return res.status(500).json({message:'Failed'}); res.json(rows); });
 });
 
-// ===== Start Server =====
-app.listen(PORT, () => {
-    console.log(`🚀 Server is running at http://localhost:${PORT}`);
-});
-// ===== ADMIN ROUTES =====
-
-// GET admin stats
-app.get('/api/admin/stats', (req, res) => {
-    db.get(`SELECT
-        (SELECT COUNT(*) FROM users WHERE role='student') AS students,
-        (SELECT COUNT(*) FROM users WHERE role='teacher') AS teachers,
-        (SELECT COUNT(*) FROM courses) AS courses,
-        (SELECT COUNT(*) FROM grade_issues) AS feedback
-    `, [], (err, row) => {
-        if (err) return res.status(500).json({ message: 'Failed to fetch stats' });
-        res.json(row);
-    });
-});
-
-// GET all users
-app.get('/api/admin/users', (req, res) => {
-    db.all(`SELECT id, name, email, role FROM users ORDER BY role, name`, [], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Failed to fetch users' });
-        res.json(rows);
-    });
-});
-
-// DELETE a user
-app.delete('/api/admin/users/:id', (req, res) => {
-    const id = req.params.id;
-    db.run(`DELETE FROM users WHERE id = ?`, [id], function(err) {
-        if (err) return res.status(500).json({ message: 'Failed to delete user' });
-        if (this.changes === 0) return res.status(404).json({ message: 'User not found' });
-        // Clean up related data
-        db.run(`DELETE FROM teacher_courses WHERE teacher_id = ?`, [id]);
-        db.run(`DELETE FROM student_grades WHERE student_id = ?`, [id]);
-        db.run(`DELETE FROM grade_issues WHERE student_id = ?`, [id]);
-        res.json({ message: 'User deleted' });
-    });
-});
-
-// GET all courses with teacher assignments and grade counts
-app.get('/api/admin/courses', (req, res) => {
-    db.all(`
-        SELECT
-            c.id,
-            c.name,
+app.get('/api/admin/courses', (req,res) => {
+    db.all(`SELECT c.id,c.name,c.credits,
             GROUP_CONCAT(DISTINCT u.name) AS teachers,
+            GROUP_CONCAT(DISTINCT u.id)   AS teacher_ids,
             COUNT(DISTINCT sg.student_id) AS graded
-        FROM courses c
-        LEFT JOIN teacher_courses tc ON tc.course_id = c.id
-        LEFT JOIN users u ON u.id = tc.teacher_id
-        LEFT JOIN student_grades sg ON sg.course_id = c.id
-        GROUP BY c.id
-        ORDER BY c.name
-    `, [], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Failed to fetch courses' });
-        res.json(rows);
+            FROM courses c
+            LEFT JOIN teacher_courses tc ON tc.course_id=c.id
+            LEFT JOIN users u ON u.id=tc.teacher_id
+            LEFT JOIN student_grades sg ON sg.course_id=c.id
+            GROUP BY c.id ORDER BY c.name`,
+        [], (err,rows) => { if(err) return res.status(500).json({message:'Failed'}); res.json(rows); });
+});
+app.post('/api/admin/courses', (req,res) => {
+    const { name, credits, teacherId } = req.body;
+    if (!name) return res.status(400).json({message:'Name required'});
+    db.run(`INSERT INTO courses (name,credits) VALUES (?,?)`,[name,credits||3], function(err) {
+        if (err) return res.status(400).json({message:'Course exists or error.'});
+        const cid = this.lastID;
+        if (teacherId) db.run(`INSERT OR IGNORE INTO teacher_courses (teacher_id,course_id) VALUES (?,?)`,[teacherId,cid]);
+        res.json({message:'Created',id:cid});
+    });
+});
+app.put('/api/admin/courses/:id', (req,res) => {
+    const { name, credits, teacherId } = req.body;
+    db.run(`UPDATE courses SET name=?,credits=? WHERE id=?`,[name,credits||3,req.params.id], function(err) {
+        if (err) return res.status(500).json({message:'Update failed. Name may exist.'});
+        if (this.changes===0) return res.status(404).json({message:'Not found'});
+        db.run(`DELETE FROM teacher_courses WHERE course_id=?`,[req.params.id],()=>{
+            if (teacherId) db.run(`INSERT OR IGNORE INTO teacher_courses (teacher_id,course_id) VALUES (?,?)`,[teacherId,req.params.id]);
+            res.json({message:'Updated'});
+        });
+    });
+});
+app.delete('/api/admin/courses/:id', (req,res) => {
+    const id = req.params.id;
+    db.run(`DELETE FROM courses WHERE id=?`,[id], function(err) {
+        if (err) return res.status(500).json({message:'Failed'});
+        if (this.changes===0) return res.status(404).json({message:'Not found'});
+        db.run(`DELETE FROM teacher_courses WHERE course_id=?`,[id]);
+        db.run(`DELETE FROM student_grades WHERE course_id=?`,[id]);
+        res.json({message:'Deleted'});
     });
 });
 
-// GET all feedback (admin sees everything)
-app.get('/api/admin/feedback', (req, res) => {
-    db.all(`SELECT * FROM grade_issues ORDER BY reported_at DESC`, [], (err, rows) => {
-        if (err) return res.status(500).json({ message: 'Failed to fetch feedback' });
-        res.json(rows);
+app.get('/api/admin/feedback', (req,res) => {
+    db.all(`SELECT * FROM grade_issues ORDER BY reported_at DESC`,[],
+        (err,rows) => { if(err) return res.status(500).json({message:'Failed'}); res.json(rows); });
+});
+app.delete('/api/admin/feedback/:id', (req,res) => {
+    db.run(`DELETE FROM grade_issues WHERE id=?`,[req.params.id], function(err) {
+        if (err) return res.status(500).json({message:'Failed'});
+        if (this.changes===0) return res.status(404).json({message:'Not found'});
+        res.json({message:'Deleted'});
+    });
+});
+app.delete('/api/admin/feedback', (req,res) => {
+    db.run(`DELETE FROM grade_issues`, err => {
+        if (err) return res.status(500).json({message:'Failed'}); res.json({message:'Cleared'});
     });
 });
 
-// DELETE single feedback
-app.delete('/api/admin/feedback/:id', (req, res) => {
-    db.run(`DELETE FROM grade_issues WHERE id = ?`, [req.params.id], function(err) {
-        if (err) return res.status(500).json({ message: 'Failed to delete feedback' });
-        if (this.changes === 0) return res.status(404).json({ message: 'Feedback not found' });
-        res.json({ message: 'Deleted' });
+app.get('/api/network-info', (req,res) => res.json({ ips: getLanIPs(), port: PORT }));
+
+app.get('/api/admin/seed', (req,res) => {
+    db.get(`SELECT id FROM users WHERE role='admin' LIMIT 1`,[],(_, row) => {
+        if (row) return res.json({message:'Admin already exists.'});
+        db.run(`INSERT INTO users (name,email,password,role) VALUES (?,?,?,?)`,
+            ['Administrator','admin@studenthub.edu','admin123','admin'], err => {
+                if (err) return res.status(500).json({message:'Seed failed.'});
+                res.json({message:'Admin created. Email: admin@studenthub.edu | Password: admin123'});
+            });
     });
 });
 
-// DELETE all feedback
-app.delete('/api/admin/feedback', (req, res) => {
-    db.run(`DELETE FROM grade_issues`, function(err) {
-        if (err) return res.status(500).json({ message: 'Failed to clear feedback' });
-        res.json({ message: 'All feedback cleared' });
-    });
-});
-
-// Seed default admin account (only if no admin exists)
-app.get('/api/admin/seed', (req, res) => {
-    db.get(`SELECT id FROM users WHERE role='admin' LIMIT 1`, [], (err, row) => {
-        if (row) return res.json({ message: 'Admin already exists.' });
-        db.run(
-            `INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`,
-            ['Administrator', 'admin@studenthub.edu', 'admin123', 'admin'],
-            function(err) {
-                if (err) return res.status(500).json({ message: 'Failed to seed admin.' });
-                res.json({ message: 'Admin created. Email: admin@studenthub.edu | Password: admin123' });
-            }
-        );
-    });
+// ══════════════ START ═════════════════════════════════════════════════════════
+app.listen(PORT, '0.0.0.0', () => {
+    const ips = getLanIPs();
+    console.log('\n╔══════════════════════════════════════════════╗');
+    console.log('║    🎓  StudentHub is Running!                ║');
+    console.log('╠══════════════════════════════════════════════╣');
+    console.log(`║  Local:   http://localhost:${PORT}                ║`);
+    ips.forEach(ip => console.log(`║  Network: http://${ip}:${PORT}`.padEnd(47) + '║'));
+    console.log('╠══════════════════════════════════════════════╣');
+    console.log('║  Share Network URL with devices on same LAN  ║');
+    console.log('╚══════════════════════════════════════════════╝\n');
 });

@@ -100,7 +100,7 @@ signupForm?.addEventListener('submit', async e => {
     if (!loginRes.ok) return alert(loginData.message || 'Login failed after signup');
 
     localStorage.setItem('currentUser', JSON.stringify(loginData.user));
-    const r1 = loginData.user.role; window.location.href = r1 === 'teacher' ? 'teacher.html' : r1 === 'admin' ? 'admin.html' : 'student.html';
+    const _r1=loginData.user.role; window.location.href=_r1==='teacher'?'teacher.html':_r1==='admin'?'admin.html':'student.html';
 });
 
 // Login
@@ -119,7 +119,7 @@ loginForm?.addEventListener('submit', async e => {
     if (!res.ok) return alert(data.message || 'Invalid email or password');
 
     localStorage.setItem('currentUser', JSON.stringify(data.user));
-    const r2 = data.user.role; window.location.href = r2 === 'teacher' ? 'teacher.html' : r2 === 'admin' ? 'admin.html' : 'student.html';
+    const _r2=data.user.role; window.location.href=_r2==='teacher'?'teacher.html':_r2==='admin'?'admin.html':'student.html';
 });
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser'));
@@ -148,11 +148,27 @@ if (currentUser?.role === 'student') {
     gradesTable.innerHTML = '';
 
     courses.forEach(course => {
-        const grade = (student.grades && student.grades[course]) ? student.grades[course] : '';
+        const info    = (student.grades && student.grades[course]) ? student.grades[course] : {};
+        const grade   = typeof info === 'object' ? (info.grade   || '—') : (info || '—');
+        const credits = typeof info === 'object' ? (info.credits || '—') : '—';
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${course}</td><td>${grade}</td>`;
+        tr.innerHTML = `<td>${course}</td><td><strong>${grade}</strong></td><td>${credits}</td>`;
         gradesTable.appendChild(tr);
     });
+
+    // Display GPA
+    if (student.gpa !== null && student.gpa !== undefined) {
+        const sec = document.getElementById('gpaSection');
+        if (sec) sec.style.display = '';
+        const valEl = document.getElementById('gpaValue');
+        const badgeEl = document.getElementById('gpaClassBadge');
+        if (valEl) valEl.textContent = student.gpa.toFixed(2);
+        if (badgeEl) {
+            badgeEl.textContent = student.gpaClass || '';
+            const g = student.gpa;
+            badgeEl.style.background = g >= 3.5 ? '#2dc653' : g >= 3.0 ? '#4361ee' : g >= 2.0 ? '#f77f00' : '#ef233c';
+        }
+    }
 
     const reportForm = document.getElementById('reportForm');
 
