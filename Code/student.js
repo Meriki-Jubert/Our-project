@@ -100,7 +100,7 @@ signupForm?.addEventListener('submit', async e => {
     if (!loginRes.ok) return alert(loginData.message || 'Login failed after signup');
 
     localStorage.setItem('currentUser', JSON.stringify(loginData.user));
-    window.location.href = loginData.user.role === 'teacher' ? 'teacher.html' : 'student.html';
+    const r1 = loginData.user.role; window.location.href = r1 === 'teacher' ? 'teacher.html' : r1 === 'admin' ? 'admin.html' : 'student.html';
 });
 
 // Login
@@ -119,7 +119,7 @@ loginForm?.addEventListener('submit', async e => {
     if (!res.ok) return alert(data.message || 'Invalid email or password');
 
     localStorage.setItem('currentUser', JSON.stringify(data.user));
-    window.location.href = data.user.role === 'teacher' ? 'teacher.html' : 'student.html';
+    const r2 = data.user.role; window.location.href = r2 === 'teacher' ? 'teacher.html' : r2 === 'admin' ? 'admin.html' : 'student.html';
 });
 
 const currentUser = JSON.parse(localStorage.getItem('currentUser'));

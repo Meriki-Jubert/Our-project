@@ -323,3 +323,99 @@ app.delete('/api/complaints', (req, res) => {
 app.listen(PORT, () => {
     console.log(`🚀 Server is running at http://localhost:${PORT}`);
 });
+// ===== ADMIN ROUTES =====
+
+// GET admin stats
+app.get('/api/admin/stats', (req, res) => {
+    db.get(`SELECT
+        (SELECT COUNT(*) FROM users WHERE role='student') AS students,
+        (SELECT COUNT(*) FROM users WHERE role='teacher') AS teachers,
+        (SELECT COUNT(*) FROM courses) AS courses,
+        (SELECT COUNT(*) FROM grade_issues) AS feedback
+    `, [], (err, row) => {
+        if (err) return res.status(500).json({ message: 'Failed to fetch stats' });
+        res.json(row);
+    });
+});
+
+// GET all users
+app.get('/api/admin/users', (req, res) => {
+    db.all(`SELECT id, name, email, role FROM users ORDER BY role, name`, [], (err, rows) => {
+        if (err) return res.status(500).json({ message: 'Failed to fetch users' });
+        res.json(rows);
+    });
+});
+
+// DELETE a user
+app.delete('/api/admin/users/:id', (req, res) => {
+    const id = req.params.id;
+    db.run(`DELETE FROM users WHERE id = ?`, [id], function(err) {
+        if (err) return res.status(500).json({ message: 'Failed to delete user' });
+        if (this.changes === 0) return res.status(404).json({ message: 'User not found' });
+        // Clean up related data
+        db.run(`DELETE FROM teacher_courses WHERE teacher_id = ?`, [id]);
+        db.run(`DELETE FROM student_grades WHERE student_id = ?`, [id]);
+        db.run(`DELETE FROM grade_issues WHERE student_id = ?`, [id]);
+        res.json({ message: 'User deleted' });
+    });
+});
+
+// GET all courses with teacher assignments and grade counts
+app.get('/api/admin/courses', (req, res) => {
+    db.all(`
+        SELECT
+            c.id,
+            c.name,
+            GROUP_CONCAT(DISTINCT u.name) AS teachers,
+            COUNT(DISTINCT sg.student_id) AS graded
+        FROM courses c
+        LEFT JOIN teacher_courses tc ON tc.course_id = c.id
+        LEFT JOIN users u ON u.id = tc.teacher_id
+        LEFT JOIN student_grades sg ON sg.course_id = c.id
+        GROUP BY c.id
+        ORDER BY c.name
+    `, [], (err, rows) => {
+        if (err) return res.status(500).json({ message: 'Failed to fetch courses' });
+        res.json(rows);
+    });
+});
+
+// GET all feedback (admin sees everything)
+app.get('/api/admin/feedback', (req, res) => {
+    db.all(`SELECT * FROM grade_issues ORDER BY reported_at DESC`, [], (err, rows) => {
+        if (err) return res.status(500).json({ message: 'Failed to fetch feedback' });
+        res.json(rows);
+    });
+});
+
+// DELETE single feedback
+app.delete('/api/admin/feedback/:id', (req, res) => {
+    db.run(`DELETE FROM grade_issues WHERE id = ?`, [req.params.id], function(err) {
+        if (err) return res.status(500).json({ message: 'Failed to delete feedback' });
+        if (this.changes === 0) return res.status(404).json({ message: 'Feedback not found' });
+        res.json({ message: 'Deleted' });
+    });
+});
+
+// DELETE all feedback
+app.delete('/api/admin/feedback', (req, res) => {
+    db.run(`DELETE FROM grade_issues`, function(err) {
+        if (err) return res.status(500).json({ message: 'Failed to clear feedback' });
+        res.json({ message: 'All feedback cleared' });
+    });
+});
+
+// Seed default admin account (only if no admin exists)
+app.get('/api/admin/seed', (req, res) => {
+    db.get(`SELECT id FROM users WHERE role='admin' LIMIT 1`, [], (err, row) => {
+        if (row) return res.json({ message: 'Admin already exists.' });
+        db.run(
+            `INSERT INTO users (name, email, password, role) VALUES (?, ?, ?, ?)`,
+            ['Administrator', 'admin@studenthub.edu', 'admin123', 'admin'],
+            function(err) {
+                if (err) return res.status(500).json({ message: 'Failed to seed admin.' });
+                res.json({ message: 'Admin created. Email: admin@studenthub.edu | Password: admin123' });
+            }
+        );
+    });
+});

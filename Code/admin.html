@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - StudentHub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="StudentHub.css">
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                <span>StudentHub</span>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="admin.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="Login.html" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <main class="container admin-dashboard">
+
+        <div class="admin-hero">
+            <h1><i class="fas fa-user-shield"></i> Admin Dashboard</h1>
+            <p>Welcome, <strong><span id="adminName">Administrator</span></strong> &mdash; Full System Control</p>
+        </div>
+
+        <!-- Stat Cards -->
+        <div class="stat-grid">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statStudents">—</span>
+                    <span class="stat-label">Total Students</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statTeachers">—</span>
+                    <span class="stat-label">Total Teachers</span>
+                </div>
+            </div>
+            <div class="stat-card stat-teal">
+                <div class="stat-icon"><i class="fas fa-book-open"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statCourses">—</span>
+                    <span class="stat-label">Total Courses</span>
+                </div>
+            </div>
+            <div class="stat-card stat-orange">
+                <div class="stat-icon"><i class="fas fa-exclamation-circle"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statFeedback">—</span>
+                    <span class="stat-label">Pending Feedback</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Management -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-users-cog"></i> User Management</h2>
+                <button class="btn btn-sm btn-success" id="toggleAddUser">
+                    <i class="fas fa-plus"></i> Add User
+                </button>
+            </div>
+
+            <!-- Add User Form (hidden by default) -->
+            <div id="addUserForm" class="admin-form hidden">
+                <div class="admin-form-grid">
+                    <div class="form-group-inline">
+                        <label>Full Name</label>
+                        <input type="text" id="newUserName" placeholder="e.g. Alice Nkeng" />
+                    </div>
+                    <div class="form-group-inline">
+                        <label>Email</label>
+                        <input type="email" id="newUserEmail" placeholder="user@school.edu" />
+                    </div>
+                    <div class="form-group-inline">
+                        <label>Password</label>
+                        <input type="password" id="newUserPassword" placeholder="Temporary password" />
+                    </div>
+                    <div class="form-group-inline">
+                        <label>Role</label>
+                        <select id="newUserRole">
+                            <option value="student">Student</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="text-align:right; margin-top:10px;">
+                    <button class="btn btn-sm btn-ghost" id="cancelAddUser">Cancel</button>
+                    <button class="btn btn-sm btn-success" id="confirmAddUser">
+                        <i class="fas fa-check"></i> Create User
+                    </button>
+                </div>
+            </div>
+
+            <div id="usersTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr><td colspan="5" class="table-loading">Loading users…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Course Overview -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-book-open"></i> Course Overview</h2>
+            </div>
+            <div id="coursesTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Course Name</th>
+                            <th>Assigned Teacher(s)</th>
+                            <th>Students Graded</th>
+                        </tr>
+                    </thead>
+                    <tbody id="coursesTableBody">
+                        <tr><td colspan="4" class="table-loading">Loading courses…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Feedback Inbox -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-inbox"></i> Feedback Inbox</h2>
+                <button class="btn btn-sm btn-danger" id="clearAllFeedback">
+                    <i class="fas fa-trash-alt"></i> Clear All
+                </button>
+            </div>
+            <div id="feedbackTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Course</th>
+                            <th>Message</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feedbackTableBody">
+                        <tr><td colspan="5" class="table-loading">Loading feedback…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="logo" style="color: white; justify-content: center; margin-bottom: 20px;">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>StudentHub</span>
+                </div>
+                <p>Empowering educators and students with modern tools</p>
+            </div>
+            <div class="footer-links">
+                <a href="index.html">Home</a>
+                <a href="Login.html">Login</a>
+                <a href="#">About</a>
+            </div>
+            <div class="copyright">
+                &copy; 2025 StudentHub. All rights reserved.
+            </div>
+        </div>
+    </footer>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', async function () {
+
+        // ── Auth guard ──────────────────────────────────────────────
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser || currentUser.role !== 'admin') {
+            window.location.href = 'Login.html';
+            return;
+        }
+        document.getElementById('adminName').textContent = currentUser.name;
+
+        // ── Logout ──────────────────────────────────────────────────
+        document.getElementById('logoutBtn').addEventListener('click', e => {
+            e.preventDefault();
+            localStorage.clear();
+            window.location.href = 'Login.html';
+        });
+
+        // ── Helpers ─────────────────────────────────────────────────
+        const roleTag = role => {
+            const colors = { admin: '#7209b7', teacher: '#4361ee', student: '#4cc9f0' };
+            return `<span class="role-badge" style="background:${colors[role] || '#888'}">${role}</span>`;
+        };
+
+        const fmtDate = iso => {
+            if (!iso) return '—';
+            return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        };
+
+        // ── Load Stats ───────────────────────────────────────────────
+        async function loadStats() {
+            const res = await fetch('/api/admin/stats');
+            const d = await res.json();
+            document.getElementById('statStudents').textContent = d.students;
+            document.getElementById('statTeachers').textContent = d.teachers;
+            document.getElementById('statCourses').textContent = d.courses;
+            document.getElementById('statFeedback').textContent = d.feedback;
+        }
+
+        // ── Load Users ───────────────────────────────────────────────
+        async function loadUsers() {
+            const res = await fetch('/api/admin/users');
+            const users = await res.json();
+            const tbody = document.getElementById('usersTableBody');
+            if (!users.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No users found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = users.map((u, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${u.name}</strong></td>
+                    <td>${u.email}</td>
+                    <td>${roleTag(u.role)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-name="${u.name}">
+                            <i class="fas fa-trash"></i> Delete
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            // Delete user
+            tbody.querySelectorAll('.delete-user-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const name = btn.dataset.name;
+                    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+                    const r = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+                    if (r.ok) { loadUsers(); loadStats(); }
+                    else alert('Failed to delete user.');
+                });
+            });
+        }
+
+        // ── Load Courses ─────────────────────────────────────────────
+        async function loadCourses() {
+            const res = await fetch('/api/admin/courses');
+            const courses = await res.json();
+            const tbody = document.getElementById('coursesTableBody');
+            if (!courses.length) {
+                tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No courses found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = courses.map((c, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.teachers || '<em style="color:#aaa">Unassigned</em>'}</td>
+                    <td><span class="count-pill">${c.graded}</span></td>
+                </tr>
+            `).join('');
+        }
+
+        // ── Load Feedback ─────────────────────────────────────────────
+        async function loadFeedback() {
+            const res = await fetch('/api/admin/feedback');
+            const items = await res.json();
+            const tbody = document.getElementById('feedbackTableBody');
+            if (!items.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No feedback submitted yet. 🎉</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map(f => `
+                <tr>
+                    <td><strong>${f.student_name}</strong></td>
+                    <td>${f.subject}</td>
+                    <td class="msg-cell">${f.message}</td>
+                    <td>${fmtDate(f.reported_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-feedback-btn" data-id="${f.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            tbody.querySelectorAll('.delete-feedback-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const r = await fetch(`/api/admin/feedback/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (r.ok) { loadFeedback(); loadStats(); }
+                    else alert('Failed to delete feedback.');
+                });
+            });
+        }
+
+        // ── Clear All Feedback ────────────────────────────────────────
+        document.getElementById('clearAllFeedback').addEventListener('click', async () => {
+            if (!confirm('Clear ALL feedback entries? This cannot be undone.')) return;
+            const r = await fetch('/api/admin/feedback', { method: 'DELETE' });
+            if (r.ok) { loadFeedback(); loadStats(); }
+        });
+
+        // ── Add User Form Toggle ──────────────────────────────────────
+        const addUserForm = document.getElementById('addUserForm');
+        document.getElementById('toggleAddUser').addEventListener('click', () => {
+            addUserForm.classList.toggle('hidden');
+        });
+        document.getElementById('cancelAddUser').addEventListener('click', () => {
+            addUserForm.classList.add('hidden');
+        });
+
+        document.getElementById('confirmAddUser').addEventListener('click', async () => {
+            const name     = document.getElementById('newUserName').value.trim();
+            const email    = document.getElementById('newUserEmail').value.trim();
+            const password = document.getElementById('newUserPassword').value.trim();
+            const role     = document.getElementById('newUserRole').value;
+
+            if (!name || !email || !password) return alert('Please fill in all fields.');
+
+            const res = await fetch('/api/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, role, courses: [] })
+            });
+            const d = await res.json();
+            if (!res.ok) return alert(d.message || 'Failed to create user.');
+
+            // Clear form
+            ['newUserName','newUserEmail','newUserPassword'].forEach(id => document.getElementById(id).value = '');
+            addUserForm.classList.add('hidden');
+            loadUsers();
+            loadStats();
+        });
+
+        // ── Initial Load ──────────────────────────────────────────────
+        await Promise.all([loadStats(), loadUsers(), loadCourses(), loadFeedback()]);
+    });
+    </script>
+</body>
+</html>
