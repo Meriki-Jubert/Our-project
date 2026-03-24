@@ -84,6 +84,25 @@ async function loadCoursesForDept(deptId) {
   ).join('<br>');
 }
 
+async function loadAllCoursesForTeacher() {
+  const res = await fetch('/api/admin/courses');
+  const courses = await res.json();
+  const courseGroup = document.getElementById('courseGroup');
+  if (courseGroup) {
+    courseGroup.innerHTML = courses.map(c =>
+      `<label><input type="checkbox" name="courses" value="${c.id}"> ${c.name} (${c.credits} cr)</label>`
+    ).join('<br>');
+  }
+}
+
+if (roleSelect) {
+  roleSelect.addEventListener('change', function () {
+    if (this.value.toLowerCase() === 'teacher') {
+      loadAllCoursesForTeacher();
+    }
+  });
+}
+
 if (signupRole) {
   signupRole.addEventListener('change', function () {
     const role = this.value.toLowerCase();
@@ -177,32 +196,19 @@ if (currentUser && document.getElementById('userName')) {
 
 // Student dashboard
 if (currentUser?.role === 'student') {
-    const courses = [
-        "Architecture",
-        "Basic Environment II",
-        "Database & MERISE",
-        "Engineering Maths",
-        "Economics & Enterprise Organization",
-        "General Accounting",
-        "Maintenance and Legal Regulations",
-        "Programming I"
-    ];
-
+    // Fetch only the student's enrolled courses dynamically
     const res = await fetch(`/api/students/${encodeURIComponent(currentUser.email)}`);
     const student = await res.json();
-
     const gradesTable = document.getElementById('gradesTable');
     if (!gradesTable) return;
     gradesTable.innerHTML = '';
-
-    courses.forEach(course => {
-        const info    = (student.grades && student.grades[course]) ? student.grades[course] : {};
-        const grade   = typeof info === 'object' ? (info.grade   || '—') : (info || '—');
-        const credits = typeof info === 'object' ? (info.credits || '—') : '—';
-        const tr = document.createElement('tr');
-        tr.innerHTML = `<td>${course}</td><td><strong>${grade}</strong></td><td>${credits}</td>`;
-        gradesTable.appendChild(tr);
-    });
+    // Display only enrolled courses
+    if (student.grades) {
+        Object.entries(student.grades).forEach(([course, info]) => {
+            const grade   = typeof info === 'object' ? (info.grade   || '—') : (info || '—');
+            gradesTable.innerHTML += `<tr><td>${course}</td><td>${grade}</td></tr>`;
+        });
+    }
 
     // Display GPA
     if (student.gpa !== null && student.gpa !== undefined) {

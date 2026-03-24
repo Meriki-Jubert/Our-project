@@ -1,656 +1,562 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Admin Dashboard - StudentHub</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link rel="stylesheet" href="StudentHub.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - StudentHub</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="StudentHub.css">
 </head>
 <body>
 
-<header>
-  <div class="container header-container">
-    <div class="logo"><i class="fas fa-graduation-cap"></i><span>StudentHub</span></div>
-    <nav><ul>
-      <li><a href="admin.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
-      <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
-      <li><a href="Login.html" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
-    </ul></nav>
-  </div>
-</header>
-
-<main class="container admin-dashboard">
-
-  <!-- QR Code Banner -->
-  <div class="network-banner" id="qrBanner" style="display:none;align-items:center;gap:24px">
-    <div id="qrCodeContainer"></div>
-    <div>
-      <span style="font-weight:600">Scan to open StudentHub homepage on this network:</span><br>
-      <span id="qrNetworkUrl" style="font-size:0.95em;color:#555"></span>
-    </div>
-  </div>
-
-  <!-- Network Banner -->
-  <div class="network-banner" id="networkBanner" style="display:none">
-    <i class="fas fa-wifi"></i>
-    <span>LAN Access: <strong id="networkUrls">—</strong></span>
-    <span class="network-tip">Devices on the same WiFi/network can open this URL to access StudentHub — no internet needed.</span>
-  </div>
-
-  <!-- Hero -->
-  <div class="admin-hero">
-    <h1><i class="fas fa-user-shield"></i> Admin Dashboard</h1>
-    <p>Welcome, <strong><span id="adminName">Administrator</span></strong> &mdash; Full System Control</p>
-  </div>
-
-  <!-- Stats -->
-  <div class="stat-grid">
-    <div class="stat-card stat-blue">
-      <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
-      <div class="stat-info"><span class="stat-number" id="statStudents">—</span><span class="stat-label">Total Students</span></div>
-    </div>
-    <div class="stat-card stat-purple">
-      <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
-      <div class="stat-info"><span class="stat-number" id="statTeachers">—</span><span class="stat-label">Total Teachers</span></div>
-    </div>
-    <div class="stat-card stat-teal">
-      <div class="stat-icon"><i class="fas fa-book-open"></i></div>
-      <div class="stat-info"><span class="stat-number" id="statCourses">—</span><span class="stat-label">Total Courses</span></div>
-    </div>
-    <div class="stat-card stat-orange">
-      <div class="stat-icon"><i class="fas fa-exclamation-circle"></i></div>
-      <div class="stat-info"><span class="stat-number" id="statFeedback">—</span><span class="stat-label">Pending Feedback</span></div>
-    </div>
-  </div>
-
-  <!-- ── USER MANAGEMENT ─────────────────────────────────────────────────── -->
-  <section class="admin-card">
-    <div class="admin-card-header">
-      <h2><i class="fas fa-users-cog"></i> User Management</h2>
-      <button class="btn btn-sm btn-success" id="toggleAddUser"><i class="fas fa-plus"></i> Add User</button>
-    </div>
-
-    <div id="addUserForm" class="admin-form hidden">
-      <div class="admin-form-grid">
-        <div class="form-group-inline"><label>Full Name</label><input type="text" id="newUserName" placeholder="e.g. Alice Nkeng"></div>
-        <div class="form-group-inline"><label>Email</label><input type="email" id="newUserEmail" placeholder="user@school.edu"></div>
-        <div class="form-group-inline"><label>Password</label><input type="password" id="newUserPassword" placeholder="Temporary password"></div>
-        <div class="form-group-inline"><label>Role</label>
-          <select id="newUserRole"><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Admin</option></select>
+    <!-- Header -->
+    <header>
+        <div class="container header-container">
+            <div class="logo">
+                <i class="fas fa-graduation-cap"></i>
+                <span>StudentHub</span>
+            </div>
+            <nav>
+                <ul>
+                    <li><a href="admin.html"><i class="fas fa-tachometer-alt"></i> Dashboard</a></li>
+                    <li><a href="index.html"><i class="fas fa-home"></i> Home</a></li>
+                    <li><a href="Login.html" id="logoutBtn"><i class="fas fa-sign-out-alt"></i> Logout</a></li>
+                </ul>
+            </nav>
         </div>
-      </div>
-      <div style="text-align:right;margin-top:12px;gap:8px;display:flex;justify-content:flex-end">
-        <button class="btn btn-sm btn-ghost" id="cancelAddUser">Cancel</button>
-        <button class="btn btn-sm btn-success" id="confirmAddUser"><i class="fas fa-check"></i> Create User</button>
-      </div>
-    </div>
+    </header>
 
-    <div style="overflow-x:auto">
-      <table class="dashboard-table admin-table">
-        <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Role</th><th>Actions</th></tr></thead>
-        <tbody id="usersTableBody"><tr><td colspan="5" class="table-loading">Loading users…</td></tr></tbody>
-      </table>
-    </div>
-  </section>
+    <main class="container admin-dashboard">
 
-  <!-- ── DEPARTMENT MANAGEMENT ───────────────────────────────────────────── -->
-  <section class="admin-card">
-    <div class="admin-card-header">
-      <h2><i class="fas fa-building"></i> Department Management</h2>
-      <button class="btn btn-sm btn-success" id="toggleAddDept"><i class="fas fa-plus"></i> Add Department</button>
-    </div>
-    <div id="addDeptForm" class="admin-form hidden">
-      <div class="admin-form-grid">
-        <div class="form-group-inline"><label>Department Name</label><input type="text" id="newDeptName" placeholder="e.g. Software Engineering"></div>
-      </div>
-      <div style="text-align:right;margin-top:12px;gap:8px;display:flex;justify-content:flex-end">
-        <button class="btn btn-sm btn-ghost" id="cancelAddDept">Cancel</button>
-        <button class="btn btn-sm btn-success" id="confirmAddDept"><i class="fas fa-check"></i> Create Department</button>
-      </div>
-    </div>
-    <div style="overflow-x:auto">
-      <table class="dashboard-table admin-table">
-        <thead><tr><th>#</th><th>Department</th><th>Actions</th></tr></thead>
-        <tbody id="departmentsTableBody"><tr><td colspan="3" class="table-loading">Loading departments…</td></tr></tbody>
-      </table>
-    </div>
-  </section>
-
-  <!-- ── COURSE MANAGEMENT ───────────────────────────────────────────── -->
-  <section class="admin-card">
-    <div class="admin-card-header">
-      <h2><i class="fas fa-book-open"></i> Course Management</h2>
-      <button class="btn btn-sm btn-success" id="toggleAddCourse"><i class="fas fa-plus"></i> Add Course</button>
-    </div>
-    <div id="addCourseForm" class="admin-form hidden">
-      <div class="admin-form-grid">
-        <div class="form-group-inline"><label>Course Title</label><input type="text" id="newCourseName" placeholder="e.g. Data Structures"></div>
-        <div class="form-group-inline"><label>Credit Hours</label><input type="number" id="newCourseCredits" value="3" min="1" max="6"></div>
-        <div class="form-group-inline"><label>Department</label>
-          <select id="newCourseDept"></select>
+        <div class="admin-hero">
+            <h1><i class="fas fa-user-shield"></i> Admin Dashboard</h1>
+            <p>Welcome, <strong><span id="adminName">Administrator</span></strong> &mdash; Full System Control</p>
         </div>
-        <div class="form-group-inline" style="grid-column:span 2">
-          <label>Assign Teacher <span style="font-weight:400;color:#aaa">(optional)</span></label>
-          <div class="teacher-search-wrap">
-            <input type="text" id="addTeacherSearch" class="teacher-search-input" placeholder="🔍 Search teachers by name or email…" autocomplete="off">
-            <ul id="addTeacherList" class="teacher-dropdown-list"></ul>
-            <input type="hidden" id="addTeacherId">
-          </div>
+
+        <!-- Stat Cards -->
+        <div class="stat-grid">
+            <div class="stat-card stat-blue">
+                <div class="stat-icon"><i class="fas fa-user-graduate"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statStudents">—</span>
+                    <span class="stat-label">Total Students</span>
+                </div>
+            </div>
+            <div class="stat-card stat-purple">
+                <div class="stat-icon"><i class="fas fa-chalkboard-teacher"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statTeachers">—</span>
+                    <span class="stat-label">Total Teachers</span>
+                </div>
+            </div>
+            <div class="stat-card stat-teal">
+                <div class="stat-icon"><i class="fas fa-book-open"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statCourses">—</span>
+                    <span class="stat-label">Total Courses</span>
+                </div>
+            </div>
+            <div class="stat-card stat-orange">
+                <div class="stat-icon"><i class="fas fa-exclamation-circle"></i></div>
+                <div class="stat-info">
+                    <span class="stat-number" id="statFeedback">—</span>
+                    <span class="stat-label">Pending Feedback</span>
+                </div>
+            </div>
         </div>
-      </div>
-      <div style="text-align:right;margin-top:12px;display:flex;justify-content:flex-end;gap:8px">
-        <button class="btn btn-sm btn-ghost" id="cancelAddCourse">Cancel</button>
-        <button class="btn btn-sm btn-success" id="confirmAddCourse"><i class="fas fa-check"></i> Create Course</button>
-      </div>
-    </div>
-    <div style="overflow-x:auto">
-      <table class="dashboard-table admin-table">
-        <thead><tr><th>#</th><th>Course Title</th><th>Credits</th><th>Department</th><th>Assigned Teacher</th><th>Students Graded</th><th>Actions</th></tr></thead>
-        <tbody id="coursesTableBody"><tr><td colspan="7" class="table-loading">Loading courses…</td></tr></tbody>
-      </table>
-    </div>
-  </section>
 
-  <!-- ── FEEDBACK INBOX ──────────────────────────────────────────────────── -->
-  <section class="admin-card">
-    <div class="admin-card-header">
-      <h2><i class="fas fa-inbox"></i> Feedback Inbox</h2>
-      <button class="btn btn-sm btn-danger" id="clearAllFeedback"><i class="fas fa-trash-alt"></i> Clear All</button>
-    </div>
-    <div style="overflow-x:auto">
-      <table class="dashboard-table admin-table">
-        <thead><tr><th>Student</th><th>Course</th><th>Message</th><th>Date</th><th>Action</th></tr></thead>
-        <tbody id="feedbackTableBody"><tr><td colspan="5" class="table-loading">Loading feedback…</td></tr></tbody>
-      </table>
-    </div>
-  </section>
+        <!-- User Management -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-users-cog"></i> User Management</h2>
+                <button class="btn btn-sm btn-success" id="toggleAddUser">
+                    <i class="fas fa-plus"></i> Add User
+                </button>
+            </div>
 
-</main>
+            <!-- Add User Form (hidden by default) -->
+            <div id="addUserForm" class="admin-form hidden">
+                <div class="admin-form-grid">
+                    <div class="form-group-inline">
+                        <label>Full Name</label>
+                        <input type="text" id="newUserName" placeholder="e.g. Alice Nkeng" />
+                    </div>
+                    <div class="form-group-inline">
+                        <label>Email</label>
+                        <input type="email" id="newUserEmail" placeholder="user@school.edu" />
+                    </div>
+                    <div class="form-group-inline">
+                        <label>Password</label>
+                        <input type="password" id="newUserPassword" placeholder="Temporary password" />
+                    </div>
+                    <div class="form-group-inline">
+                        <label>Role</label>
+                        <select id="newUserRole">
+                            <option value="student">Student</option>
+                            <option value="teacher">Teacher</option>
+                            <option value="admin">Admin</option>
+                        </select>
+                    </div>
+                </div>
+                <div style="text-align:right; margin-top:10px;">
+                    <button class="btn btn-sm btn-ghost" id="cancelAddUser">Cancel</button>
+                    <button class="btn btn-sm btn-success" id="confirmAddUser">
+                        <i class="fas fa-check"></i> Create User
+                    </button>
+                </div>
+            </div>
 
-<!-- ══════ EDIT USER MODAL ══════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="editUserModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3><i class="fas fa-user-edit"></i> Edit User</h3>
-      <button class="modal-close" id="closeEditUser">&times;</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editUserId">
-      <div class="admin-form-grid">
-        <div class="form-group-inline"><label>Full Name</label><input type="text" id="editUserName"></div>
-        <div class="form-group-inline"><label>Email</label><input type="email" id="editUserEmail"></div>
-        <div class="form-group-inline" style="grid-column:span 2"><label>Role</label>
-          <select id="editUserRole">
-            <option value="student">Student</option>
-            <option value="teacher">Teacher</option>
-            <option value="admin">Admin</option>
-          </select>
+            <div id="usersTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="usersTableBody">
+                        <tr><td colspan="5" class="table-loading">Loading users…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Course Overview -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-book-open"></i> Course Overview</h2>
+                <button class="btn btn-sm btn-success" id="toggleAddCourse">
+                    <i class="fas fa-plus"></i> Add Course
+                </button>
+            </div>
+            <!-- Add Course Form (hidden by default) -->
+            <div id="addCourseForm" class="admin-form hidden">
+                <div class="admin-form-grid">
+                    <div class="form-group-inline">
+                        <label>Course Name</label>
+                        <input type="text" id="newCourseName" placeholder="e.g. Introduction to Biology" />
+                    </div>
+                    <div class="form-group-inline">
+                        <label>Assigned Teacher(s)</label>
+                        <select id="newCourseTeachers" multiple>
+                            <!-- Teacher options will be populated by JS -->
+                        </select>
+                    </div>
+                </div>
+                <div style="text-align:right; margin-top:10px;">
+                    <button class="btn btn-sm btn-ghost" id="cancelAddCourse">Cancel</button>
+                    <button class="btn btn-sm btn-success" id="confirmAddCourse">
+                        <i class="fas fa-check"></i> Create Course
+                    </button>
+                </div>
+            </div>
+            <div id="coursesTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Course Name</th>
+                            <th>Assigned Teacher(s)</th>
+                            <th>Students Graded</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="coursesTableBody">
+                        <tr><td colspan="5" class="table-loading">Loading courses…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Feedback Inbox -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-inbox"></i> Feedback Inbox</h2>
+                <button class="btn btn-sm btn-danger" id="clearAllFeedback">
+                    <i class="fas fa-trash-alt"></i> Clear All
+                </button>
+            </div>
+            <div id="feedbackTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>Student</th>
+                            <th>Course</th>
+                            <th>Message</th>
+                            <th>Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feedbackTableBody">
+                        <tr><td colspan="5" class="table-loading">Loading feedback…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Edit Course Modal -->
+        <div id="editCourseModal" class="admin-form hidden">
+            <div class="admin-form-grid">
+                <div class="form-group-inline">
+                    <label>Course Name</label>
+                    <input type="text" id="editCourseName" />
+                </div>
+                <div class="form-group-inline">
+                    <label>Assigned Teacher(s)</label>
+                    <select id="editCourseTeachers" multiple></select>
+                </div>
+            </div>
+            <div style="text-align:right; margin-top:10px;">
+                <button class="btn btn-sm btn-ghost" id="cancelEditCourse">Cancel</button>
+                <button class="btn btn-sm btn-success" id="saveEditCourse">
+                    <i class="fas fa-check"></i> Save Changes
+                </button>
+            </div>
         </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-sm btn-ghost" id="cancelEditUser">Cancel</button>
-      <button class="btn btn-sm btn-success" id="saveEditUser"><i class="fas fa-save"></i> Save Changes</button>
-    </div>
-  </div>
-</div>
 
-<!-- ══════ EDIT COURSE MODAL ════════════════════════════════════════════════ -->
-<div class="modal-overlay" id="editCourseModal">
-  <div class="modal-box">
-    <div class="modal-header">
-      <h3><i class="fas fa-edit"></i> Edit Course</h3>
-      <button class="modal-close" id="closeEditCourse">&times;</button>
-    </div>
-    <div class="modal-body">
-      <input type="hidden" id="editCourseId">
-      <div class="admin-form-grid">
-        <div class="form-group-inline"><label>Course Title</label><input type="text" id="editCourseName"></div>
-        <div class="form-group-inline"><label>Credit Hours</label><input type="number" id="editCourseCredits" min="1" max="6"></div>
-        <div class="form-group-inline"><label>Department</label>
-          <select id="editCourseDept"></select>
+        <!-- Edit User Modal -->
+        <div id="editUserModal" class="admin-form hidden">
+            <div class="admin-form-grid">
+                <div class="form-group-inline">
+                    <label>Full Name</label>
+                    <input type="text" id="editUserName" />
+                </div>
+                <div class="form-group-inline">
+                    <label>Email</label>
+                    <input type="email" id="editUserEmail" disabled />
+                </div>
+                <div class="form-group-inline">
+                    <label>Role</label>
+                    <select id="editUserRole">
+                        <option value="student">Student</option>
+                        <option value="teacher">Teacher</option>
+                        <option value="admin">Admin</option>
+                    </select>
+                </div>
+            </div>
+            <div style="text-align:right; margin-top:10px;">
+                <button class="btn btn-sm btn-ghost" id="cancelEditUser">Cancel</button>
+                <button class="btn btn-sm btn-success" id="saveEditUser">
+                    <i class="fas fa-check"></i> Save Changes
+                </button>
+            </div>
         </div>
-        <div class="form-group-inline" style="grid-column:span 2">
-          <label>Assign Teacher</label>
-          <div class="teacher-search-wrap">
-            <input type="text" id="editTeacherSearch" class="teacher-search-input" placeholder="🔍 Search teachers by name or email…" autocomplete="off">
-            <ul id="editTeacherList" class="teacher-dropdown-list"></ul>
-            <input type="hidden" id="editTeacherId">
-          </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="logo" style="color: white; justify-content: center; margin-bottom: 20px;">
+                    <i class="fas fa-graduation-cap"></i>
+                    <span>StudentHub</span>
+                </div>
+                <p>Empowering educators and students with modern tools</p>
+            </div>
+            <div class="footer-links">
+                <a href="index.html">Home</a>
+                <a href="Login.html">Login</a>
+                <a href="#">About</a>
+            </div>
+            <div class="copyright">
+                &copy; 2025 StudentHub. All rights reserved.
+            </div>
         </div>
-      </div>
-    </div>
-    <div class="modal-footer">
-      <button class="btn btn-sm btn-ghost" id="cancelEditCourse">Cancel</button>
-      <button class="btn btn-sm btn-success" id="saveEditCourse"><i class="fas fa-save"></i> Save Changes</button>
-    </div>
-  </div>
-</div>
+    </footer>
 
-<footer>
-  <div class="container">
-    <div class="footer-content">
-      <div class="logo" style="color:white;justify-content:center;margin-bottom:20px">
-        <i class="fas fa-graduation-cap"></i><span>StudentHub</span>
-      </div>
-      <p>Empowering educators and students with modern tools</p>
-    </div>
-    <div class="footer-links">
-      <a href="index.html">Home</a><a href="Login.html">Login</a><a href="#">About</a>
-    </div>
-    <div class="copyright">&copy; 2025 StudentHub. All rights reserved.</div>
-  </div>
-</footer>
+    <script>
+    document.addEventListener('DOMContentLoaded', async function () {
 
-<script>
-document.addEventListener('DOMContentLoaded', async () => {
-
-  // ── Auth guard ────────────────────────────────────────────────────────────
-  const cu = JSON.parse(localStorage.getItem('currentUser'));
-  if (!cu || cu.role !== 'admin') { window.location.href = 'Login.html'; return; }
-  document.getElementById('adminName').textContent = cu.name;
-
-  document.getElementById('logoutBtn').addEventListener('click', e => {
-    e.preventDefault(); localStorage.clear(); window.location.href = 'Login.html';
-  });
-
-  // ── QR Code Generator ────────────────────────────────────────────────
-  // Dynamically load QRCode library if not present
-  async function ensureQRCodeLib() {
-    if (!window.QRCode) {
-      const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
-      document.head.appendChild(script);
-      await new Promise(res => { script.onload = res; });
-    }
-  }
-
-  // Show QR code for the first available network IP
-  async function showNetworkQR(ips, port) {
-    if (!ips || !ips.length) {
-      document.getElementById('qrBanner').style.display = 'none';
-      return;
-    }
-    await ensureQRCodeLib();
-    const url = `http://${ips[0]}:${port}`;
-    document.getElementById('qrBanner').style.display = 'flex';
-    document.getElementById('qrNetworkUrl').textContent = url;
-    const qrContainer = document.getElementById('qrCodeContainer');
-    qrContainer.innerHTML = '';
-    new QRCode(qrContainer, {
-      text: url,
-      width: 120,
-      height: 120,
-      colorDark: '#222',
-      colorLight: '#fff',
-      correctLevel: QRCode.CorrectLevel.H
-    });
-  }
-
-  // ── Network banner & QR code ───────────────────────────────────────────
-  let lastQRUrl = '';
-  function updateNetworkInfo() {
-    fetch('/api/network-info').then(r=>r.json()).then(d => {
-      if (d.ips && d.ips.length) {
-        document.getElementById('networkBanner').style.display = 'flex';
-        document.getElementById('networkUrls').textContent =
-          d.ips.map(ip => `http://${ip}:${d.port}`).join('  |  ');
-        // Only update QR if network changed
-        const qrUrl = `http://${d.ips[0]}:${d.port}`;
-        if (qrUrl !== lastQRUrl) {
-          showNetworkQR(d.ips, d.port);
-          lastQRUrl = qrUrl;
+        // ── Auth guard ──────────────────────────────────────────────
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser || currentUser.role !== 'admin') {
+            window.location.href = 'Login.html';
+            return;
         }
-      } else {
-        document.getElementById('networkBanner').style.display = 'none';
-        document.getElementById('qrBanner').style.display = 'none';
-      }
-    }).catch(()=>{
-      document.getElementById('networkBanner').style.display = 'none';
-      document.getElementById('qrBanner').style.display = 'none';
+        document.getElementById('adminName').textContent = currentUser.name;
+
+        // ── Logout ──────────────────────────────────────────────────
+        document.getElementById('logoutBtn').addEventListener('click', e => {
+            e.preventDefault();
+            localStorage.clear();
+            window.location.href = 'Login.html';
+        });
+
+        // ── Helpers ─────────────────────────────────────────────────
+        const roleTag = role => {
+            const colors = { admin: '#7209b7', teacher: '#4361ee', student: '#4cc9f0' };
+            return `<span class="role-badge" style="background:${colors[role] || '#888'}">${role}</span>`;
+        };
+
+        const fmtDate = iso => {
+            if (!iso) return '—';
+            return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+        };
+
+        // ── Populate Teacher Dropdowns ───────────────────────────────
+        async function populateTeacherDropdown(selectId) {
+            const res = await fetch('/api/admin/users');
+            const users = await res.json();
+            const teacherSelect = document.getElementById(selectId);
+            teacherSelect.innerHTML = '';
+            users.filter(u => u.role === 'teacher').forEach(teacher => {
+                const option = document.createElement('option');
+                option.value = teacher.name;
+                option.textContent = teacher.name + ' (' + teacher.email + ')';
+                teacherSelect.appendChild(option);
+            });
+        }
+
+        // ── Load Stats ───────────────────────────────────────────────
+        async function loadStats() {
+            const res = await fetch('/api/admin/stats');
+            const d = await res.json();
+            document.getElementById('statStudents').textContent = d.students;
+            document.getElementById('statTeachers').textContent = d.teachers;
+            document.getElementById('statCourses').textContent = d.courses;
+            document.getElementById('statFeedback').textContent = d.feedback;
+        }
+
+        // ── Load Users (with Edit) ─────────────────────────────────────
+        async function loadUsers() {
+            const res = await fetch('/api/admin/users');
+            const users = await res.json();
+            const tbody = document.getElementById('usersTableBody');
+            if (!users.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No users found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = users.map((u, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${u.name}</strong></td>
+                    <td>${u.email}</td>
+                    <td>${roleTag(u.role)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary edit-user-btn" data-id="${u.id}"><i class="fas fa-edit"></i> Edit</button>
+                        <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-name="${u.name}"><i class="fas fa-trash"></i> Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+            // Edit user
+            tbody.querySelectorAll('.edit-user-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const user = users.find(u => u.id == btn.dataset.id);
+                    showEditUserModal(user);
+                });
+            });
+            // Delete user
+            tbody.querySelectorAll('.delete-user-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const id = btn.dataset.id;
+                    const name = btn.dataset.name;
+                    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
+                    const r = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
+                    if (r.ok) { loadUsers(); loadStats(); }
+                    else alert('Failed to delete user.');
+                });
+            });
+        }
+
+        // ── Load Courses (with Edit) ─────────────────────────────────────
+        async function loadCourses() {
+            const res = await fetch('/api/admin/courses');
+            const courses = await res.json();
+            const tbody = document.getElementById('coursesTableBody');
+            if (!courses.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No courses found.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = courses.map((c, i) => `
+                <tr>
+                    <td>${i + 1}</td>
+                    <td><strong>${c.name}</strong></td>
+                    <td>${c.teachers || '<em style="color:#aaa">Unassigned</em>'}</td>
+                    <td><span class="count-pill">${c.graded}</span></td>
+                    <td><button class="btn btn-sm btn-primary edit-course-btn" data-id="${c.id}"><i class="fas fa-edit"></i> Edit</button></td>
+                </tr>
+            `).join('');
+            // Edit course
+            tbody.querySelectorAll('.edit-course-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const course = courses.find(c => c.id == btn.dataset.id);
+                    showEditCourseModal(course);
+                });
+            });
+        }
+
+        // ── Load Feedback ─────────────────────────────────────────────
+        async function loadFeedback() {
+            const res = await fetch('/api/admin/feedback');
+            const items = await res.json();
+            const tbody = document.getElementById('feedbackTableBody');
+            if (!items.length) {
+                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No feedback submitted yet. 🎉</td></tr>';
+                return;
+            }
+            tbody.innerHTML = items.map(f => `
+                <tr>
+                    <td><strong>${f.student_name}</strong></td>
+                    <td>${f.subject}</td>
+                    <td class="msg-cell">${f.message}</td>
+                    <td>${fmtDate(f.reported_at)}</td>
+                    <td>
+                        <button class="btn btn-sm btn-danger delete-feedback-btn" data-id="${f.id}">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+
+            tbody.querySelectorAll('.delete-feedback-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const r = await fetch(`/api/admin/feedback/${btn.dataset.id}`, { method: 'DELETE' });
+                    if (r.ok) { loadFeedback(); loadStats(); }
+                    else alert('Failed to delete feedback.');
+                });
+            });
+        }
+
+        // ── Clear All Feedback ────────────────────────────────────────
+        document.getElementById('clearAllFeedback').addEventListener('click', async () => {
+            if (!confirm('Clear ALL feedback entries? This cannot be undone.')) return;
+            const r = await fetch('/api/admin/feedback', { method: 'DELETE' });
+            if (r.ok) { loadFeedback(); loadStats(); }
+        });
+
+        // ── Add User Form Toggle ──────────────────────────────────────
+        const addUserForm = document.getElementById('addUserForm');
+        document.getElementById('toggleAddUser').addEventListener('click', () => {
+            addUserForm.classList.toggle('hidden');
+        });
+        document.getElementById('cancelAddUser').addEventListener('click', () => {
+            addUserForm.classList.add('hidden');
+        });
+
+        document.getElementById('confirmAddUser').addEventListener('click', async () => {
+            const name     = document.getElementById('newUserName').value.trim();
+            const email    = document.getElementById('newUserEmail').value.trim();
+            const password = document.getElementById('newUserPassword').value.trim();
+            const role     = document.getElementById('newUserRole').value;
+
+            if (!name || !email || !password) return alert('Please fill in all fields.');
+
+            const res = await fetch('/api/signup', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, role, courses: [] })
+            });
+            const d = await res.json();
+            if (!res.ok) return alert(d.message || 'Failed to create user.');
+
+            // Clear form
+            ['newUserName','newUserEmail','newUserPassword'].forEach(id => document.getElementById(id).value = '');
+            addUserForm.classList.add('hidden');
+            loadUsers();
+            loadStats();
+        });
+
+        // ── Add Course Form Toggle ──────────────────────────────────────
+        const addCourseForm = document.getElementById('addCourseForm');
+        document.getElementById('toggleAddCourse').addEventListener('click', () => {
+            addCourseForm.classList.toggle('hidden');
+            if (!addCourseForm.classList.contains('hidden')) {
+                populateTeacherDropdown('newCourseTeachers');
+            }
+        });
+        document.getElementById('cancelAddCourse').addEventListener('click', () => {
+            addCourseForm.classList.add('hidden');
+        });
+
+        document.getElementById('confirmAddCourse').addEventListener('click', async () => {
+            const name     = document.getElementById('newCourseName').value.trim();
+            const teachers = Array.from(document.getElementById('newCourseTeachers').selectedOptions).map(opt => opt.value);
+
+            if (!name || !teachers.length) return alert('Please fill in all fields.');
+
+            const res = await fetch('/api/admin/courses', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, teachers })
+            });
+            const d = await res.json();
+            if (!res.ok) return alert(d.message || 'Failed to create course.');
+
+            document.getElementById('newCourseName').value = '';
+            document.getElementById('newCourseTeachers').selectedIndex = -1;
+            addCourseForm.classList.add('hidden');
+            loadCourses();
+            loadStats();
+        });
+
+        // ── Edit Course Modal Logic ─────────────────────────────────────
+        const editCourseModal = document.getElementById('editCourseModal');
+        let editingCourseId = null;
+        async function showEditCourseModal(course) {
+            editingCourseId = course.id;
+            document.getElementById('editCourseName').value = course.name;
+            await populateTeacherDropdown('editCourseTeachers');
+            const teacherSelect = document.getElementById('editCourseTeachers');
+            Array.from(teacherSelect.options).forEach(opt => {
+                opt.selected = (course.teachers || '').split(',').map(t => t.trim()).includes(opt.value);
+            });
+            editCourseModal.classList.remove('hidden');
+        }
+        document.getElementById('cancelEditCourse').addEventListener('click', () => {
+            editCourseModal.classList.add('hidden');
+        });
+        document.getElementById('saveEditCourse').addEventListener('click', async () => {
+            const name = document.getElementById('editCourseName').value.trim();
+            const teachers = Array.from(document.getElementById('editCourseTeachers').selectedOptions).map(opt => opt.value);
+            if (!name || !teachers.length) return alert('Please fill in all fields.');
+            const res = await fetch(`/api/admin/courses/${editingCourseId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, teachers })
+            });
+            const d = await res.json();
+            if (!res.ok) return alert(d.message || 'Failed to update course.');
+            editCourseModal.classList.add('hidden');
+            loadCourses();
+            loadStats();
+        });
+
+        // ── Edit User Modal Logic ─────────────────────────────────────
+        const editUserModal = document.getElementById('editUserModal');
+        let editingUserId = null;
+        async function showEditUserModal(user) {
+            editingUserId = user.id;
+            document.getElementById('editUserName').value = user.name;
+            document.getElementById('editUserEmail').value = user.email;
+            document.getElementById('editUserRole').value = user.role;
+            editUserModal.classList.remove('hidden');
+        }
+        document.getElementById('cancelEditUser').addEventListener('click', () => {
+            editUserModal.classList.add('hidden');
+        });
+        document.getElementById('saveEditUser').addEventListener('click', async () => {
+            const name = document.getElementById('editUserName').value.trim();
+            const role = document.getElementById('editUserRole').value;
+            if (!name || !role) return alert('Please fill in all fields.');
+            const res = await fetch(`/api/admin/users/${editingUserId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, role })
+            });
+            const d = await res.json();
+            if (!res.ok) return alert(d.message || 'Failed to update user.');
+            editUserModal.classList.add('hidden');
+            loadUsers();
+            loadStats();
+        });
+
+        // ── Initial Load ──────────────────────────────────────────────
+        await Promise.all([loadStats(), loadUsers(), loadCourses(), loadFeedback()]);
     });
-  }
-
-  // Initial load and poll for network changes
-  updateNetworkInfo();
-  setInterval(updateNetworkInfo, 10000); // check every 10s
-
-  // ── Helpers ───────────────────────────────────────────────────────────────
-  const roleTag = r => {
-    const c = {admin:'#7209b7',teacher:'#4361ee',student:'#2dc653'}[r]||'#888';
-    return `<span class="role-badge" style="background:${c}">${r}</span>`;
-  };
-  const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'}) : '—';
-
-  // ── TEACHER SEARCH DROPDOWN ───────────────────────────────────────────────
-  let cachedTeachers = null;
-  async function getTeachers() {
-    if (!cachedTeachers) {
-      const r = await fetch('/api/admin/teachers');
-      cachedTeachers = await r.json();
-    }
-    return cachedTeachers;
-  }
-
-  function makeTeacherDropdown(searchId, listId, hiddenId) {
-    const searchEl  = document.getElementById(searchId);
-    const listEl    = document.getElementById(listId);
-    const hiddenEl  = document.getElementById(hiddenId);
-
-    function render(teachers, query='') {
-      const q = query.toLowerCase();
-      const filtered = teachers.filter(t =>
-        t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q));
-      listEl.innerHTML = '';
-
-      // "None" option
-      const noneEl = document.createElement('li');
-      noneEl.className = 'teacher-option teacher-none';
-      noneEl.textContent = '— No teacher assigned —';
-      noneEl.addEventListener('mousedown', e => { e.preventDefault();
-        hiddenEl.value=''; searchEl.value=''; listEl.classList.remove('open'); });
-      listEl.appendChild(noneEl);
-
-      filtered.forEach(t => {
-        const li = document.createElement('li');
-        li.className = 'teacher-option';
-        li.innerHTML = `<strong>${t.name}</strong><span>${t.email}</span>`;
-        li.addEventListener('mousedown', e => { e.preventDefault();
-          hiddenEl.value = t.id; searchEl.value = t.name; listEl.classList.remove('open'); });
-        listEl.appendChild(li);
-      });
-
-      if (filtered.length === 0) {
-        const empty = document.createElement('li');
-        empty.className = 'teacher-option teacher-none';
-        empty.textContent = 'No teachers found';
-        listEl.appendChild(empty);
-      }
-    }
-
-    searchEl.addEventListener('focus', async () => {
-      const t = await getTeachers();
-      render(t, searchEl.value);
-      listEl.classList.add('open');
-    });
-    searchEl.addEventListener('input', async () => {
-      const t = await getTeachers();
-      render(t, searchEl.value);
-      listEl.classList.add('open');
-    });
-    searchEl.addEventListener('blur', () => {
-      setTimeout(() => listEl.classList.remove('open'), 150);
-    });
-
-    return {
-      set(id, name) { hiddenEl.value = id||''; searchEl.value = name||''; },
-      getId() { return hiddenEl.value; }
-    };
-  }
-
-  const addTeacherDD   = makeTeacherDropdown('addTeacherSearch','addTeacherList','addTeacherId');
-  const editTeacherDD  = makeTeacherDropdown('editTeacherSearch','editTeacherList','editTeacherId');
-
-  // ── STATS ─────────────────────────────────────────────────────────────────
-  async function loadStats() {
-    const d = await fetch('/api/admin/stats').then(r=>r.json());
-    document.getElementById('statStudents').textContent = d.students;
-    document.getElementById('statTeachers').textContent = d.teachers;
-    document.getElementById('statCourses').textContent  = d.courses;
-    document.getElementById('statFeedback').textContent = d.feedback;
-  }
-
-  // ── USERS ─────────────────────────────────────────────────────────────────
-  async function loadUsers() {
-    const users = await fetch('/api/admin/users').then(r=>r.json());
-    const tbody = document.getElementById('usersTableBody');
-    if (!users.length) { tbody.innerHTML='<tr><td colspan="5" class="table-loading">No users found.</td></tr>'; return; }
-    tbody.innerHTML = users.map((u,i) => `
-      <tr>
-        <td>${i+1}</td>
-        <td><strong>${u.name}</strong></td>
-        <td>${u.email}</td>
-        <td>${roleTag(u.role)}</td>
-        <td style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-sm edit-user-btn"
-            data-id="${u.id}" data-name="${u.name}" data-email="${u.email}" data-role="${u.role}"
-            style="background:linear-gradient(to right,#4361ee,#3a0ca3)">
-            <i class="fas fa-edit"></i> Edit
-          </button>
-          <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-name="${u.name}">
-            <i class="fas fa-trash"></i> Delete
-          </button>
-        </td>
-      </tr>`).join('');
-
-    tbody.querySelectorAll('.edit-user-btn').forEach(btn => {
-      btn.addEventListener('click', () => openEditUser(btn.dataset));
-    });
-    tbody.querySelectorAll('.delete-user-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm(`Delete "${btn.dataset.name}"? This cannot be undone.`)) return;
-        const r = await fetch(`/api/admin/users/${btn.dataset.id}`, {method:'DELETE'});
-        if (r.ok) { loadUsers(); loadStats(); cachedTeachers=null; }
-        else alert('Failed to delete user.');
-      });
-    });
-  }
-
-  // Add User
-  document.getElementById('toggleAddUser').addEventListener('click', () =>
-    document.getElementById('addUserForm').classList.toggle('hidden'));
-  document.getElementById('cancelAddUser').addEventListener('click', () =>
-    document.getElementById('addUserForm').classList.add('hidden'));
-  document.getElementById('confirmAddUser').addEventListener('click', async () => {
-    const name=document.getElementById('newUserName').value.trim();
-    const email=document.getElementById('newUserEmail').value.trim();
-    const password=document.getElementById('newUserPassword').value.trim();
-    const role=document.getElementById('newUserRole').value;
-    if (!name||!email||!password) return alert('Please fill in all fields.');
-    const r = await fetch('/api/signup',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,email,password,role,courses:[]})});
-    const d = await r.json();
-    if (!r.ok) return alert(d.message||'Failed to create user.');
-    ['newUserName','newUserEmail','newUserPassword'].forEach(id=>document.getElementById(id).value='');
-    document.getElementById('addUserForm').classList.add('hidden');
-    loadUsers(); loadStats(); cachedTeachers=null;
-  });
-
-  // Edit User Modal
-  function openEditUser({id,name,email,role}) {
-    document.getElementById('editUserId').value = id;
-    document.getElementById('editUserName').value = name;
-    document.getElementById('editUserEmail').value = email;
-    document.getElementById('editUserRole').value = role;
-    document.getElementById('editUserModal').classList.add('open');
-  }
-  function closeEditUser() { document.getElementById('editUserModal').classList.remove('open'); }
-  document.getElementById('closeEditUser').addEventListener('click', closeEditUser);
-  document.getElementById('cancelEditUser').addEventListener('click', closeEditUser);
-  document.getElementById('editUserModal').addEventListener('click', e => {
-    if (e.target===e.currentTarget) closeEditUser();
-  });
-  document.getElementById('saveEditUser').addEventListener('click', async () => {
-    const id    = document.getElementById('editUserId').value;
-    const name  = document.getElementById('editUserName').value.trim();
-    const email = document.getElementById('editUserEmail').value.trim();
-    const role  = document.getElementById('editUserRole').value;
-    if (!name||!email) return alert('Name and email are required.');
-    const r = await fetch(`/api/admin/users/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,email,role})});
-    const d = await r.json();
-    if (!r.ok) return alert(d.message||'Update failed.');
-    closeEditUser(); loadUsers(); loadStats(); cachedTeachers=null;
-  });
-
-  // ── COURSES ───────────────────────────────────────────────────────────────
-  async function loadCourses() {
-    const courses = await fetch('/api/admin/courses').then(r=>r.json());
-    const tbody = document.getElementById('coursesTableBody');
-    if (!courses.length) { tbody.innerHTML='<tr><td colspan="7" class="table-loading">No courses found.</td></tr>'; return; }
-    tbody.innerHTML = courses.map((c,i) => `
-      <tr>
-        <td>${i+1}</td>
-        <td><strong>${c.name}</strong></td>
-        <td><span class="credit-badge">${c.credits||3} cr</span></td>
-        <td>${c.department||'<em style="color:#bbb">Unassigned</em>'}</td>
-        <td>${c.teachers||'<em style="color:#bbb">Unassigned</em>'}</td>
-        <td><span class="count-pill">${c.graded}</span></td>
-        <td style="display:flex;gap:6px;flex-wrap:wrap">
-          <button class="btn btn-sm edit-course-btn"
-            data-id="${c.id}" data-name="${c.name}" data-credits="${c.credits||3}"
-            data-dept-id="${c.department_id||''}" data-dept-name="${c.department||''}"
-            data-teacher-id="${c.teacher_ids||''}" data-teacher-name="${c.teachers||''}"
-            style="background:linear-gradient(to right,#4361ee,#3a0ca3)">
-            <i class="fas fa-edit"></i> Edit
-          </button>
-          <button class="btn btn-sm btn-danger delete-course-btn" data-id="${c.id}" data-name="${c.name}">
-            <i class="fas fa-trash"></i> Delete
-          </button>
-        </td>
-      </tr>`).join('');
-
-    tbody.querySelectorAll('.edit-course-btn').forEach(btn => {
-      btn.addEventListener('click', () => openEditCourse(btn.dataset));
-    });
-    tbody.querySelectorAll('.delete-course-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm(`Delete course "${btn.dataset.name}"? All related grades will be removed.`)) return;
-        const r = await fetch(`/api/admin/courses/${btn.dataset.id}`,{method:'DELETE'});
-        if (r.ok) { loadCourses(); loadStats(); }
-        else alert('Failed to delete course.');
-      });
-    });
-  }
-
-  // Add Course
-  document.getElementById('toggleAddCourse').addEventListener('click', () =>
-    document.getElementById('addCourseForm').classList.toggle('hidden'));
-  document.getElementById('cancelAddCourse').addEventListener('click', () =>
-    document.getElementById('addCourseForm').classList.add('hidden'));
-  document.getElementById('confirmAddCourse').addEventListener('click', async () => {
-    const name      = document.getElementById('newCourseName').value.trim();
-    const credits   = parseInt(document.getElementById('newCourseCredits').value)||3;
-    const departmentId = document.getElementById('newCourseDept').value;
-    const teacherId = addTeacherDD.getId()||null;
-    if (!name) return alert('Course title is required.');
-    const r = await fetch('/api/admin/courses',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,credits,departmentId,teacherId})});
-    const d = await r.json();
-    if (!r.ok) return alert(d.message||'Failed to create course.');
-    document.getElementById('newCourseName').value='';
-    document.getElementById('newCourseCredits').value='3';
-    document.getElementById('newCourseDept').value='';
-    addTeacherDD.set('','');
-    document.getElementById('addCourseForm').classList.add('hidden');
-    loadCourses(); loadStats();
-  });
-
-  // Edit Course Modal
-  function openEditCourse({id,name,credits,departmentId,departmentName,teacherId,teacherName}) {
-    document.getElementById('editCourseId').value      = id;
-    document.getElementById('editCourseName').value    = name;
-    document.getElementById('editCourseCredits').value = credits;
-    document.getElementById('editCourseDept').value    = departmentId;
-    // teacher_ids may be comma-separated if multiple; take first
-    const firstTeacherId   = (teacherId||'').split(',')[0].trim();
-    const firstTeacherName = (teacherName||'').split(',')[0].trim();
-    editTeacherDD.set(firstTeacherId, firstTeacherName);
-    document.getElementById('editCourseModal').classList.add('open');
-  }
-  function closeEditCourse() { document.getElementById('editCourseModal').classList.remove('open'); }
-  document.getElementById('closeEditCourse').addEventListener('click', closeEditCourse);
-  document.getElementById('cancelEditCourse').addEventListener('click', closeEditCourse);
-  document.getElementById('editCourseModal').addEventListener('click', e => {
-    if (e.target===e.currentTarget) closeEditCourse();
-  });
-  document.getElementById('saveEditCourse').addEventListener('click', async () => {
-    const id        = document.getElementById('editCourseId').value;
-    const name      = document.getElementById('editCourseName').value.trim();
-    const credits   = parseInt(document.getElementById('editCourseCredits').value)||3;
-    const departmentId = document.getElementById('editCourseDept').value;
-    const teacherId = editTeacherDD.getId()||null;
-    if (!name) return alert('Course title is required.');
-    const r = await fetch(`/api/admin/courses/${id}`,{method:'PUT',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({name,credits,departmentId,teacherId})});
-    const d = await r.json();
-    if (!r.ok) return alert(d.message||'Update failed.');
-    closeEditCourse(); loadCourses();
-  });
-
-  // ── DEPARTMENTS ───────────────────────────────────────────────────────────
-  async function loadDepartments() {
-    const depts = await fetch('/api/departments').then(r=>r.json());
-    // Department table
-    const tbody = document.getElementById('departmentsTableBody');
-    if (!depts.length) { tbody.innerHTML = '<tr><td colspan="3" class="table-loading">No departments found.</td></tr>'; return; }
-    tbody.innerHTML = depts.map((d,i) => `
-      <tr>
-        <td>${i+1}</td>
-        <td>${d.name}</td>
-        <td><button class="btn btn-sm btn-danger delete-dept-btn" data-id="${d.id}" data-name="${d.name}"><i class="fas fa-trash"></i> Delete</button></td>
-      </tr>`).join('');
-    tbody.querySelectorAll('.delete-dept-btn').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        if (!confirm(`Delete department "${btn.dataset.name}"? This cannot be undone.`)) return;
-        const r = await fetch(`/api/admin/departments/${btn.dataset.id}`, {method:'DELETE'});
-        if (r.ok) loadDepartments();
-        else alert('Failed to delete department.');
-      });
-    });
-    // Department dropdown for course creation
-    const deptSel = document.getElementById('newCourseDept');
-    if (deptSel) {
-      deptSel.innerHTML = '<option value="">Select department</option>' +
-        depts.map(d => `<option value="${d.id}">${d.name}</option>`).join('');
-    }
-  }
-  document.getElementById('toggleAddDept').addEventListener('click', () =>
-    document.getElementById('addDeptForm').classList.toggle('hidden'));
-  document.getElementById('cancelAddDept').addEventListener('click', () =>
-    document.getElementById('addDeptForm').classList.add('hidden'));
-  document.getElementById('confirmAddDept').addEventListener('click', async () => {
-    const name = document.getElementById('newDeptName').value.trim();
-    if (!name) return alert('Department name required.');
-    const r = await fetch('/api/admin/departments', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})});
-    if (!r.ok) return alert('Failed to add department.');
-    document.getElementById('newDeptName').value = '';
-    document.getElementById('addDeptForm').classList.add('hidden');
-    loadDepartments();
-  });
-
-  // ── FEEDBACK ──────────────────────────────────────────────────────────────
-  async function loadFeedback() {
-    const items = await fetch('/api/admin/feedback').then(r=>r.json());
-    const tbody = document.getElementById('feedbackTableBody');
-    if (!items.length) { tbody.innerHTML='<tr><td colspan="5" class="table-loading">No feedback yet. 🎉</td></tr>'; return; }
-    tbody.innerHTML = items.map(f => `
-      <tr>
-        <td><strong>${f.student_name}</strong></td>
-        <td>${f.subject}</td>
-        <td class="msg-cell" title="${f.message}">${f.message}</td>
-        <td>${fmtDate(f.reported_at)}</td>
-        <td><button class="btn btn-sm btn-danger del-feedback" data-id="${f.id}"><i class="fas fa-trash"></i></button></td>
-      </tr>`).join('');
-
-    tbody.querySelectorAll('.del-feedback').forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const r = await fetch(`/api/admin/feedback/${btn.dataset.id}`,{method:'DELETE'});
-        if (r.ok) { loadFeedback(); loadStats(); }
-      });
-    });
-  }
-
-  document.getElementById('clearAllFeedback').addEventListener('click', async () => {
-    if (!confirm('Clear ALL feedback? This cannot be undone.')) return;
-    const r = await fetch('/api/admin/feedback',{method:'DELETE'});
-    if (r.ok) { loadFeedback(); loadStats(); }
-  });
-
-  // ── INIT ──────────────────────────────────────────────────────────────────
-  await Promise.all([loadStats(), loadUsers(), loadCourses(), loadDepartments(), loadFeedback()]);
-});
-</script>
+    </script>
 </body>
 </html>
