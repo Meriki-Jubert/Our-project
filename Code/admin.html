@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="StudentHub.css">
 </head>
+
 <body>
 
     <!-- Header -->
@@ -28,9 +30,19 @@
 
     <main class="container admin-dashboard">
 
-        <div class="admin-hero">
-            <h1><i class="fas fa-user-shield"></i> Admin Dashboard</h1>
-            <p>Welcome, <strong><span id="adminName">Administrator</span></strong> &mdash; Full System Control</p>
+        <div class="admin-hero"
+            style="display: flex; justify-content: space-between; align-items: center; padding-right: 30px;">
+            <div>
+                <h1><i class="fas fa-user-shield"></i> Admin Dashboard</h1>
+                <p>Welcome, <strong><span id="adminName">Administrator</span></strong> &mdash; Full System Control</p>
+            </div>
+            <div
+                style="display: flex; flex-direction: column; align-items: center; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <img id="networkQrCode" src="" alt="QR Code"
+                    style="width: 140px; height: 140px; display: none; object-fit: contain;" />
+                <span id="networkUrl"
+                    style="font-size: 0.9rem; margin-top: 5px; color: #333; font-weight: bold; font-family: monospace;">Loading...</span>
+            </div>
         </div>
 
         <!-- Stat Cards -->
@@ -65,6 +77,55 @@
             </div>
         </div>
 
+        <!-- Departments Overview -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-building"></i> Department Overview</h2>
+                <button class="btn btn-sm btn-success" id="toggleAddDept">
+                    <i class="fas fa-plus"></i> Add Dept
+                </button>
+            </div>
+
+            <div id="addDeptModal" class="modal-overlay">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-building"></i> Add Department</h3>
+                        <button class="modal-close" id="cancelAddDept">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="admin-form-grid">
+                            <div class="form-group-inline">
+                                <label>Department Name</label>
+                                <input type="text" id="newDeptName" placeholder="e.g. Computer Science" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-sm btn-success" id="confirmAddDept">
+                            <i class="fas fa-check"></i> Create Department
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="deptsTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Department Name</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="deptsTableBody">
+                        <tr>
+                            <td colspan="3" class="table-loading">Loading departments…</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- User Management -->
         <section class="admin-card">
             <div class="admin-card-header">
@@ -74,35 +135,55 @@
                 </button>
             </div>
 
-            <!-- Add User Form (hidden by default) -->
-            <div id="addUserForm" class="admin-form hidden">
-                <div class="admin-form-grid">
-                    <div class="form-group-inline">
-                        <label>Full Name</label>
-                        <input type="text" id="newUserName" placeholder="e.g. Alice Nkeng" />
+            <!-- Add User Modal -->
+            <div id="addUserModal" class="modal-overlay">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-user-plus"></i> Add User</h3>
+                        <button class="modal-close" id="cancelAddUser">&times;</button>
                     </div>
-                    <div class="form-group-inline">
-                        <label>Email</label>
-                        <input type="email" id="newUserEmail" placeholder="user@school.edu" />
+                    <div class="modal-body">
+                        <div class="admin-form-grid">
+                            <div class="form-group-inline">
+                                <label>Full Name</label>
+                                <input type="text" id="newUserName" placeholder="e.g. Alice Nkeng" />
+                            </div>
+                            <div class="form-group-inline">
+                                <label>Email</label>
+                                <input type="email" id="newUserEmail" placeholder="user@school.edu" />
+                            </div>
+                            <div class="form-group-inline">
+                                <label>Password</label>
+                                <input type="password" id="newUserPassword" placeholder="Temporary password" />
+                            </div>
+                            <div class="form-group-inline">
+                                <label>Role</label>
+                                <select id="newUserRole">
+                                    <option value="student">Student</option>
+                                    <option value="teacher">Teacher</option>
+                                    <option value="admin">Admin</option>
+                                </select>
+                            </div>
+                            <div class="form-group-inline hidden" id="newUserDeptWrap">
+                                <label>Department</label>
+                                <input list="newUserDeptList" id="newUserDept" placeholder="Search department..." />
+                                <datalist id="newUserDeptList"></datalist>
+                            </div>
+                            <div class="form-group-inline hidden" id="newUserCourseWrap" style="grid-column: 1 / -1;">
+                                <label>Assign Courses</label>
+                                <div class="course-checkboxes" id="newUserCourseList"
+                                    style="max-height: 150px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 4px; background: #fafafa;">
+                                    <em style="color:#888;font-size:12px;">Select a department first to load
+                                        courses.</em>
+                                </div>
+                            </div>
+                        </div>
                     </div>
-                    <div class="form-group-inline">
-                        <label>Password</label>
-                        <input type="password" id="newUserPassword" placeholder="Temporary password" />
+                    <div class="modal-footer">
+                        <button class="btn btn-sm btn-success" id="confirmAddUser">
+                            <i class="fas fa-check"></i> Create User
+                        </button>
                     </div>
-                    <div class="form-group-inline">
-                        <label>Role</label>
-                        <select id="newUserRole">
-                            <option value="student">Student</option>
-                            <option value="teacher">Teacher</option>
-                            <option value="admin">Admin</option>
-                        </select>
-                    </div>
-                </div>
-                <div style="text-align:right; margin-top:10px;">
-                    <button class="btn btn-sm btn-ghost" id="cancelAddUser">Cancel</button>
-                    <button class="btn btn-sm btn-success" id="confirmAddUser">
-                        <i class="fas fa-check"></i> Create User
-                    </button>
                 </div>
             </div>
 
@@ -113,12 +194,14 @@
                             <th>#</th>
                             <th>Name</th>
                             <th>Email</th>
-                            <th>Role</th>
+                            <th>Role / Dept</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="usersTableBody">
-                        <tr><td colspan="5" class="table-loading">Loading users…</td></tr>
+                        <tr>
+                            <td colspan="5" class="table-loading">Loading users…</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -132,25 +215,36 @@
                     <i class="fas fa-plus"></i> Add Course
                 </button>
             </div>
-            <!-- Add Course Form (hidden by default) -->
-            <div id="addCourseForm" class="admin-form hidden">
-                <div class="admin-form-grid">
-                    <div class="form-group-inline">
-                        <label>Course Name</label>
-                        <input type="text" id="newCourseName" placeholder="e.g. Introduction to Biology" />
+            <!-- Add Course Modal -->
+            <div id="addCourseModal" class="modal-overlay">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-book-open"></i> Add Course</h3>
+                        <button class="modal-close" id="cancelAddCourse">&times;</button>
                     </div>
-                    <div class="form-group-inline">
-                        <label>Assigned Teacher(s)</label>
-                        <select id="newCourseTeachers" multiple>
-                            <!-- Teacher options will be populated by JS -->
-                        </select>
+                    <div class="modal-body">
+                        <div class="admin-form-grid">
+                            <div class="form-group-inline">
+                                <label>Course Name</label>
+                                <input type="text" id="newCourseName" placeholder="e.g. Introduction to Biology" />
+                            </div>
+                            <div class="form-group-inline">
+                                <label>Department</label>
+                                <input list="courseDeptList" id="newCourseDept" placeholder="Search department..." />
+                                <datalist id="courseDeptList"></datalist>
+                            </div>
+                            <div class="form-group-inline">
+                                <label>Assigned Teacher(s)</label>
+                                <input list="courseTeacherList" id="newCourseTeacher" placeholder="Search teacher..." />
+                                <datalist id="courseTeacherList"></datalist>
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div style="text-align:right; margin-top:10px;">
-                    <button class="btn btn-sm btn-ghost" id="cancelAddCourse">Cancel</button>
-                    <button class="btn btn-sm btn-success" id="confirmAddCourse">
-                        <i class="fas fa-check"></i> Create Course
-                    </button>
+                    <div class="modal-footer">
+                        <button class="btn btn-sm btn-success" id="confirmAddCourse">
+                            <i class="fas fa-check"></i> Create Course
+                        </button>
+                    </div>
                 </div>
             </div>
             <div id="coursesTableWrap">
@@ -159,13 +253,16 @@
                         <tr>
                             <th>#</th>
                             <th>Course Name</th>
-                            <th>Assigned Teacher(s)</th>
-                            <th>Students Graded</th>
+                            <th>Dept</th>
+                            <th>Teacher(s)</th>
+                            <th>Graded</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
                     <tbody id="coursesTableBody">
-                        <tr><td colspan="5" class="table-loading">Loading courses…</td></tr>
+                        <tr>
+                            <td colspan="6" class="table-loading">Loading courses…</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
@@ -191,57 +288,85 @@
                         </tr>
                     </thead>
                     <tbody id="feedbackTableBody">
-                        <tr><td colspan="5" class="table-loading">Loading feedback…</td></tr>
+                        <tr>
+                            <td colspan="5" class="table-loading">Loading feedback…</td>
+                        </tr>
                     </tbody>
                 </table>
             </div>
         </section>
 
         <!-- Edit Course Modal -->
-        <div id="editCourseModal" class="admin-form hidden">
-            <div class="admin-form-grid">
-                <div class="form-group-inline">
-                    <label>Course Name</label>
-                    <input type="text" id="editCourseName" />
+        <div id="editCourseModal" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3><i class="fas fa-edit"></i> Edit Course</h3>
+                    <button class="modal-close" id="cancelEditCourse">&times;</button>
                 </div>
-                <div class="form-group-inline">
-                    <label>Assigned Teacher(s)</label>
-                    <select id="editCourseTeachers" multiple></select>
+                <div class="modal-body">
+                    <div class="admin-form-grid">
+                        <div class="form-group-inline">
+                            <label>Course Name</label>
+                            <input type="text" id="editCourseName" />
+                        </div>
+                        <div class="form-group-inline">
+                            <label>Department</label>
+                            <input list="editCourseDeptList" id="editCourseDept" placeholder="Search department..." />
+                            <datalist id="editCourseDeptList"></datalist>
+                        </div>
+                        <div class="form-group-inline">
+                            <label>Assigned Teacher(s)</label>
+                            <input list="editCourseTeacherList" id="editCourseTeacher"
+                                placeholder="Search teacher..." />
+                            <datalist id="editCourseTeacherList"></datalist>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div style="text-align:right; margin-top:10px;">
-                <button class="btn btn-sm btn-ghost" id="cancelEditCourse">Cancel</button>
-                <button class="btn btn-sm btn-success" id="saveEditCourse">
-                    <i class="fas fa-check"></i> Save Changes
-                </button>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-success" id="saveEditCourse">
+                        <i class="fas fa-check"></i> Save Changes
+                    </button>
+                </div>
             </div>
         </div>
 
         <!-- Edit User Modal -->
-        <div id="editUserModal" class="admin-form hidden">
-            <div class="admin-form-grid">
-                <div class="form-group-inline">
-                    <label>Full Name</label>
-                    <input type="text" id="editUserName" />
+        <div id="editUserModal" class="modal-overlay">
+            <div class="modal-box">
+                <div class="modal-header">
+                    <h3><i class="fas fa-edit"></i> Edit User</h3>
+                    <button class="modal-close" id="cancelEditUser">&times;</button>
                 </div>
-                <div class="form-group-inline">
-                    <label>Email</label>
-                    <input type="email" id="editUserEmail" disabled />
+                <div class="modal-body">
+                    <div class="admin-form-grid">
+                        <div class="form-group-inline">
+                            <label>Full Name</label>
+                            <input type="text" id="editUserName" />
+                        </div>
+                        <div class="form-group-inline">
+                            <label>Email</label>
+                            <input type="email" id="editUserEmail" disabled />
+                        </div>
+                        <div class="form-group-inline">
+                            <label>Role</label>
+                            <select id="editUserRole">
+                                <option value="student">Student</option>
+                                <option value="teacher">Teacher</option>
+                                <option value="admin">Admin</option>
+                            </select>
+                        </div>
+                        <div class="form-group-inline hidden" id="editUserDeptWrap">
+                            <label>Department</label>
+                            <input list="editUserDeptList" id="editUserDept" placeholder="Search department..." />
+                            <datalist id="editUserDeptList"></datalist>
+                        </div>
+                    </div>
                 </div>
-                <div class="form-group-inline">
-                    <label>Role</label>
-                    <select id="editUserRole">
-                        <option value="student">Student</option>
-                        <option value="teacher">Teacher</option>
-                        <option value="admin">Admin</option>
-                    </select>
+                <div class="modal-footer">
+                    <button class="btn btn-sm btn-success" id="saveEditUser">
+                        <i class="fas fa-check"></i> Save Changes
+                    </button>
                 </div>
-            </div>
-            <div style="text-align:right; margin-top:10px;">
-                <button class="btn btn-sm btn-ghost" id="cancelEditUser">Cancel</button>
-                <button class="btn btn-sm btn-success" id="saveEditUser">
-                    <i class="fas fa-check"></i> Save Changes
-                </button>
             </div>
         </div>
 
@@ -269,294 +394,394 @@
     </footer>
 
     <script>
-    document.addEventListener('DOMContentLoaded', async function () {
+        document.addEventListener('DOMContentLoaded', async function () {
 
-        // ── Auth guard ──────────────────────────────────────────────
-        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        if (!currentUser || currentUser.role !== 'admin') {
-            window.location.href = 'Login.html';
-            return;
-        }
-        document.getElementById('adminName').textContent = currentUser.name;
-
-        // ── Logout ──────────────────────────────────────────────────
-        document.getElementById('logoutBtn').addEventListener('click', e => {
-            e.preventDefault();
-            localStorage.clear();
-            window.location.href = 'Login.html';
-        });
-
-        // ── Helpers ─────────────────────────────────────────────────
-        const roleTag = role => {
-            const colors = { admin: '#7209b7', teacher: '#4361ee', student: '#4cc9f0' };
-            return `<span class="role-badge" style="background:${colors[role] || '#888'}">${role}</span>`;
-        };
-
-        const fmtDate = iso => {
-            if (!iso) return '—';
-            return new Date(iso).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-        };
-
-        // ── Populate Teacher Dropdowns ───────────────────────────────
-        async function populateTeacherDropdown(selectId) {
-            const res = await fetch('/api/admin/users');
-            const users = await res.json();
-            const teacherSelect = document.getElementById(selectId);
-            teacherSelect.innerHTML = '';
-            users.filter(u => u.role === 'teacher').forEach(teacher => {
-                const option = document.createElement('option');
-                option.value = teacher.name;
-                option.textContent = teacher.name + ' (' + teacher.email + ')';
-                teacherSelect.appendChild(option);
-            });
-        }
-
-        // ── Load Stats ───────────────────────────────────────────────
-        async function loadStats() {
-            const res = await fetch('/api/admin/stats');
-            const d = await res.json();
-            document.getElementById('statStudents').textContent = d.students;
-            document.getElementById('statTeachers').textContent = d.teachers;
-            document.getElementById('statCourses').textContent = d.courses;
-            document.getElementById('statFeedback').textContent = d.feedback;
-        }
-
-        // ── Load Users (with Edit) ─────────────────────────────────────
-        async function loadUsers() {
-            const res = await fetch('/api/admin/users');
-            const users = await res.json();
-            const tbody = document.getElementById('usersTableBody');
-            if (!users.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No users found.</td></tr>';
+            // ── Auth guard ──────────────────────────────────────────────
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || currentUser.role !== 'admin') {
+                window.location.href = 'Login.html';
                 return;
             }
-            tbody.innerHTML = users.map((u, i) => `
+            document.getElementById('adminName').textContent = currentUser.name;
+
+            // ── Logout ──────────────────────────────────────────────────
+            document.getElementById('logoutBtn').addEventListener('click', e => {
+                e.preventDefault();
+                localStorage.clear();
+                window.location.href = 'Login.html';
+            });
+
+            // ── Helpers ─────────────────────────────────────────────────
+            const roleTag = role => {
+                const colors = { admin: '#7209b7', teacher: '#4361ee', student: '#4cc9f0' };
+                return `<span class="role-badge" style="background:${colors[role] || '#888'}">${role}</span>`;
+            };
+            const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('en-GB') : '—';
+            const getDatalistId = (listId, val) => document.querySelector(`#${listId} option[value="${val.replace(/"/g, '\\"')}"]`)?.dataset.id || null;
+
+            // ── Modal Helpers ───────────────────────────────────────────
+            const openModal = id => document.getElementById(id).classList.add('open');
+            const closeModal = id => document.getElementById(id).classList.remove('open');
+
+            // ── Data Loaders & State ────────────────────────────────────
+            let allDepts = [];
+            let allTeachers = [];
+
+            async function loadDepts() {
+                const res = await fetch('/api/departments');
+                allDepts = await res.json();
+                const tbody = document.getElementById('deptsTableBody');
+                if (!allDepts.length) {
+                    tbody.innerHTML = '<tr><td colspan="3" class="table-loading">No departments found.</td></tr>';
+                } else {
+                    tbody.innerHTML = allDepts.map((d, i) => `
+                    <tr>
+                        <td>${i + 1}</td>
+                        <td><strong>${d.name}</strong></td>
+                        <td><button class="btn btn-sm btn-danger delete-dept-btn" data-id="${d.id}" data-name="${d.name}"><i class="fas fa-trash"></i></button></td>
+                    </tr>
+                `).join('');
+
+                    tbody.querySelectorAll('.delete-dept-btn').forEach(btn => {
+                        btn.addEventListener('click', async () => {
+                            if (!confirm(`Delete "${btn.dataset.name}"?`)) return;
+                            await fetch(`/api/admin/departments/${btn.dataset.id}`, { method: 'DELETE' });
+                            refreshAll();
+                        });
+                    });
+                }
+                populateDatalists();
+            }
+
+            async function fetchTeachers() {
+                const res = await fetch('/api/admin/users');
+                const users = await res.json();
+                allTeachers = users.filter(u => u.role === 'teacher');
+                populateDatalists();
+            }
+
+            function populateDatalists() {
+                const deptHTML = allDepts.map(d => `<option data-id="${d.id}" value="${d.name}"></option>`).join('');
+                document.querySelectorAll('#newUserDeptList, #courseDeptList, #editCourseDeptList, #editUserDeptList').forEach(l => l.innerHTML = deptHTML);
+
+                const teacherHTML = allTeachers.map(t => `<option data-id="${t.id}" value="${t.name}"></option>`).join('');
+                document.querySelectorAll('#courseTeacherList, #editCourseTeacherList').forEach(l => l.innerHTML = teacherHTML);
+            }
+
+            async function loadStats() {
+                const res = await fetch('/api/admin/stats');
+                const d = await res.json();
+                document.getElementById('statStudents').textContent = d.students || 0;
+                document.getElementById('statTeachers').textContent = d.teachers || 0;
+                document.getElementById('statCourses').textContent = d.courses || 0;
+                document.getElementById('statFeedback').textContent = d.feedback || 0;
+
+                try {
+                    const qrRes = await fetch('/api/qrcode');
+                    if (qrRes.ok) {
+                        const qrData = await qrRes.json();
+                        const qrImg = document.getElementById('networkQrCode');
+                        const urlSpan = document.getElementById('networkUrl');
+                        if (qrImg && urlSpan) {
+                            qrImg.src = qrData.qrCode;
+                            qrImg.style.display = 'block';
+                            urlSpan.textContent = qrData.url.replace(/^https?:\/\//, '');
+                        }
+                    }
+                } catch (e) { console.error('Failed to load QR code', e); }
+            }
+
+            async function loadUsers() {
+                const res = await fetch('/api/admin/users');
+                const users = await res.json();
+                const tbody = document.getElementById('usersTableBody');
+                if (!users.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No users found.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = users.map((u, i) => `
                 <tr>
                     <td>${i + 1}</td>
                     <td><strong>${u.name}</strong></td>
                     <td>${u.email}</td>
-                    <td>${roleTag(u.role)}</td>
+                    <td>${roleTag(u.role)}<br><small style="color:#888">${u.department_name || ''}</small></td>
                     <td>
                         <button class="btn btn-sm btn-primary edit-user-btn" data-id="${u.id}"><i class="fas fa-edit"></i> Edit</button>
-                        <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-name="${u.name}"><i class="fas fa-trash"></i> Delete</button>
+                        <button class="btn btn-sm btn-danger delete-user-btn" data-id="${u.id}" data-name="${u.name}"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>
             `).join('');
-            // Edit user
-            tbody.querySelectorAll('.edit-user-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const user = users.find(u => u.id == btn.dataset.id);
-                    showEditUserModal(user);
-                });
-            });
-            // Delete user
-            tbody.querySelectorAll('.delete-user-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const id = btn.dataset.id;
-                    const name = btn.dataset.name;
-                    if (!confirm(`Delete user "${name}"? This cannot be undone.`)) return;
-                    const r = await fetch(`/api/admin/users/${id}`, { method: 'DELETE' });
-                    if (r.ok) { loadUsers(); loadStats(); }
-                    else alert('Failed to delete user.');
-                });
-            });
-        }
 
-        // ── Load Courses (with Edit) ─────────────────────────────────────
-        async function loadCourses() {
-            const res = await fetch('/api/admin/courses');
-            const courses = await res.json();
-            const tbody = document.getElementById('coursesTableBody');
-            if (!courses.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No courses found.</td></tr>';
-                return;
+                tbody.querySelectorAll('.edit-user-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const user = users.find(u => u.id == btn.dataset.id);
+                        showEditUserModal(user);
+                    });
+                });
+                tbody.querySelectorAll('.delete-user-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        if (!confirm(`Delete user "${btn.dataset.name}"?`)) return;
+                        await fetch(`/api/admin/users/${btn.dataset.id}`, { method: 'DELETE' });
+                        refreshAll();
+                    });
+                });
             }
-            tbody.innerHTML = courses.map((c, i) => `
+
+            async function loadCourses() {
+                const res = await fetch('/api/admin/courses');
+                const courses = await res.json();
+                const tbody = document.getElementById('coursesTableBody');
+                if (!courses.length) {
+                    tbody.innerHTML = '<tr><td colspan="6" class="table-loading">No courses found.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = courses.map((c, i) => `
                 <tr>
                     <td>${i + 1}</td>
                     <td><strong>${c.name}</strong></td>
+                    <td>${c.department_name || '<em style="color:red">None</em>'}</td>
                     <td>${c.teachers || '<em style="color:#aaa">Unassigned</em>'}</td>
                     <td><span class="count-pill">${c.graded}</span></td>
-                    <td><button class="btn btn-sm btn-primary edit-course-btn" data-id="${c.id}"><i class="fas fa-edit"></i> Edit</button></td>
+                    <td><button class="btn btn-sm btn-primary edit-course-btn" data-id="${c.id}"><i class="fas fa-edit"></i></button></td>
                 </tr>
             `).join('');
-            // Edit course
-            tbody.querySelectorAll('.edit-course-btn').forEach(btn => {
-                btn.addEventListener('click', () => {
-                    const course = courses.find(c => c.id == btn.dataset.id);
-                    showEditCourseModal(course);
-                });
-            });
-        }
 
-        // ── Load Feedback ─────────────────────────────────────────────
-        async function loadFeedback() {
-            const res = await fetch('/api/admin/feedback');
-            const items = await res.json();
-            const tbody = document.getElementById('feedbackTableBody');
-            if (!items.length) {
-                tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No feedback submitted yet. 🎉</td></tr>';
-                return;
+                tbody.querySelectorAll('.edit-course-btn').forEach(btn => {
+                    btn.addEventListener('click', () => {
+                        const course = courses.find(c => c.id == btn.dataset.id);
+                        showEditCourseModal(course);
+                    });
+                });
             }
-            tbody.innerHTML = items.map(f => `
+
+            async function loadFeedback() {
+                const res = await fetch('/api/admin/feedback');
+                const items = await res.json();
+                const tbody = document.getElementById('feedbackTableBody');
+                if (!items.length) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No feedback submitted yet.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = items.map(f => `
                 <tr>
                     <td><strong>${f.student_name}</strong></td>
                     <td>${f.subject}</td>
                     <td class="msg-cell">${f.message}</td>
                     <td>${fmtDate(f.reported_at)}</td>
                     <td>
-                        <button class="btn btn-sm btn-danger delete-feedback-btn" data-id="${f.id}">
-                            <i class="fas fa-trash"></i>
-                        </button>
+                        <button class="btn btn-sm btn-danger delete-feedback-btn" data-id="${f.id}"><i class="fas fa-trash"></i></button>
                     </td>
                 </tr>
             `).join('');
-
-            tbody.querySelectorAll('.delete-feedback-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const r = await fetch(`/api/admin/feedback/${btn.dataset.id}`, { method: 'DELETE' });
-                    if (r.ok) { loadFeedback(); loadStats(); }
-                    else alert('Failed to delete feedback.');
+                tbody.querySelectorAll('.delete-feedback-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        if (!confirm('Delete this feedback?')) return;
+                        await fetch(`/api/admin/feedback/${btn.dataset.id}`, { method: 'DELETE' });
+                        loadFeedback(); loadStats();
+                    });
                 });
-            });
-        }
-
-        // ── Clear All Feedback ────────────────────────────────────────
-        document.getElementById('clearAllFeedback').addEventListener('click', async () => {
-            if (!confirm('Clear ALL feedback entries? This cannot be undone.')) return;
-            const r = await fetch('/api/admin/feedback', { method: 'DELETE' });
-            if (r.ok) { loadFeedback(); loadStats(); }
-        });
-
-        // ── Add User Form Toggle ──────────────────────────────────────
-        const addUserForm = document.getElementById('addUserForm');
-        document.getElementById('toggleAddUser').addEventListener('click', () => {
-            addUserForm.classList.toggle('hidden');
-        });
-        document.getElementById('cancelAddUser').addEventListener('click', () => {
-            addUserForm.classList.add('hidden');
-        });
-
-        document.getElementById('confirmAddUser').addEventListener('click', async () => {
-            const name     = document.getElementById('newUserName').value.trim();
-            const email    = document.getElementById('newUserEmail').value.trim();
-            const password = document.getElementById('newUserPassword').value.trim();
-            const role     = document.getElementById('newUserRole').value;
-
-            if (!name || !email || !password) return alert('Please fill in all fields.');
-
-            const res = await fetch('/api/signup', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, email, password, role, courses: [] })
-            });
-            const d = await res.json();
-            if (!res.ok) return alert(d.message || 'Failed to create user.');
-
-            // Clear form
-            ['newUserName','newUserEmail','newUserPassword'].forEach(id => document.getElementById(id).value = '');
-            addUserForm.classList.add('hidden');
-            loadUsers();
-            loadStats();
-        });
-
-        // ── Add Course Form Toggle ──────────────────────────────────────
-        const addCourseForm = document.getElementById('addCourseForm');
-        document.getElementById('toggleAddCourse').addEventListener('click', () => {
-            addCourseForm.classList.toggle('hidden');
-            if (!addCourseForm.classList.contains('hidden')) {
-                populateTeacherDropdown('newCourseTeachers');
             }
-        });
-        document.getElementById('cancelAddCourse').addEventListener('click', () => {
-            addCourseForm.classList.add('hidden');
-        });
 
-        document.getElementById('confirmAddCourse').addEventListener('click', async () => {
-            const name     = document.getElementById('newCourseName').value.trim();
-            const teachers = Array.from(document.getElementById('newCourseTeachers').selectedOptions).map(opt => opt.value);
-
-            if (!name || !teachers.length) return alert('Please fill in all fields.');
-
-            const res = await fetch('/api/admin/courses', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, teachers })
+            document.getElementById('clearAllFeedback').addEventListener('click', async () => {
+                if (!confirm('Clear ALL?')) return;
+                await fetch('/api/admin/feedback', { method: 'DELETE' });
+                loadFeedback(); loadStats();
             });
-            const d = await res.json();
-            if (!res.ok) return alert(d.message || 'Failed to create course.');
 
-            document.getElementById('newCourseName').value = '';
-            document.getElementById('newCourseTeachers').selectedIndex = -1;
-            addCourseForm.classList.add('hidden');
-            loadCourses();
-            loadStats();
-        });
+            // ── Refresh Handler ─────────────────────────────────────────
+            async function refreshAll() {
+                await Promise.all([loadDepts(), fetchTeachers(), loadStats(), loadUsers(), loadCourses(), loadFeedback()]);
+            }
 
-        // ── Edit Course Modal Logic ─────────────────────────────────────
-        const editCourseModal = document.getElementById('editCourseModal');
-        let editingCourseId = null;
-        async function showEditCourseModal(course) {
-            editingCourseId = course.id;
-            document.getElementById('editCourseName').value = course.name;
-            await populateTeacherDropdown('editCourseTeachers');
-            const teacherSelect = document.getElementById('editCourseTeachers');
-            Array.from(teacherSelect.options).forEach(opt => {
-                opt.selected = (course.teachers || '').split(',').map(t => t.trim()).includes(opt.value);
+            // ── Add Dept ────────────────────────────────────────────────
+            document.getElementById('toggleAddDept').addEventListener('click', () => openModal('addDeptModal'));
+            document.getElementById('cancelAddDept').addEventListener('click', () => closeModal('addDeptModal'));
+            document.getElementById('confirmAddDept').addEventListener('click', async () => {
+                const name = document.getElementById('newDeptName').value.trim();
+                if (!name) return;
+                const res = await fetch('/api/admin/departments', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (!res.ok) return alert('Failed to create department. It may already exist.');
+                document.getElementById('newDeptName').value = '';
+                closeModal('addDeptModal');
+                refreshAll();
             });
-            editCourseModal.classList.remove('hidden');
-        }
-        document.getElementById('cancelEditCourse').addEventListener('click', () => {
-            editCourseModal.classList.add('hidden');
-        });
-        document.getElementById('saveEditCourse').addEventListener('click', async () => {
-            const name = document.getElementById('editCourseName').value.trim();
-            const teachers = Array.from(document.getElementById('editCourseTeachers').selectedOptions).map(opt => opt.value);
-            if (!name || !teachers.length) return alert('Please fill in all fields.');
-            const res = await fetch(`/api/admin/courses/${editingCourseId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, teachers })
-            });
-            const d = await res.json();
-            if (!res.ok) return alert(d.message || 'Failed to update course.');
-            editCourseModal.classList.add('hidden');
-            loadCourses();
-            loadStats();
-        });
 
-        // ── Edit User Modal Logic ─────────────────────────────────────
-        const editUserModal = document.getElementById('editUserModal');
-        let editingUserId = null;
-        async function showEditUserModal(user) {
-            editingUserId = user.id;
-            document.getElementById('editUserName').value = user.name;
-            document.getElementById('editUserEmail').value = user.email;
-            document.getElementById('editUserRole').value = user.role;
-            editUserModal.classList.remove('hidden');
-        }
-        document.getElementById('cancelEditUser').addEventListener('click', () => {
-            editUserModal.classList.add('hidden');
-        });
-        document.getElementById('saveEditUser').addEventListener('click', async () => {
-            const name = document.getElementById('editUserName').value.trim();
-            const role = document.getElementById('editUserRole').value;
-            if (!name || !role) return alert('Please fill in all fields.');
-            const res = await fetch(`/api/admin/users/${editingUserId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, role })
+            // ── Add User ────────────────────────────────────────────────
+            document.getElementById('toggleAddUser').addEventListener('click', () => {
+                document.getElementById('newUserDeptWrap').classList.remove('hidden');
+                document.getElementById('newUserCourseWrap').classList.remove('hidden');
+                document.getElementById('newUserCourseList').innerHTML = '<em style="color:#888;font-size:12px;">Select a department first to load courses.</em>';
+                document.getElementById('newUserRole').value = 'student';
+                openModal('addUserModal');
             });
-            const d = await res.json();
-            if (!res.ok) return alert(d.message || 'Failed to update user.');
-            editUserModal.classList.add('hidden');
-            loadUsers();
-            loadStats();
-        });
+            document.getElementById('cancelAddUser').addEventListener('click', () => closeModal('addUserModal'));
 
-        // ── Initial Load ──────────────────────────────────────────────
-        await Promise.all([loadStats(), loadUsers(), loadCourses(), loadFeedback()]);
-    });
+            document.getElementById('newUserRole').addEventListener('change', e => {
+                const deptWrap = document.getElementById('newUserDeptWrap');
+                const courseWrap = document.getElementById('newUserCourseWrap');
+                if (e.target.value === 'admin') {
+                    deptWrap.classList.add('hidden');
+                    courseWrap.classList.add('hidden');
+                } else {
+                    deptWrap.classList.remove('hidden');
+                    courseWrap.classList.remove('hidden');
+                }
+            });
+
+            document.getElementById('newUserDept').addEventListener('input', async e => {
+                const deptName = e.target.value.trim();
+                const departmentId = getDatalistId('newUserDeptList', deptName);
+                const courseList = document.getElementById('newUserCourseList');
+                if (!departmentId) {
+                    courseList.innerHTML = '<em style="color:#888;font-size:12px;">Select a valid department to load courses.</em>';
+                    return;
+                }
+                courseList.innerHTML = '<em style="color:#888;font-size:12px;">Loading...</em>';
+                const res = await fetch(`/api/departments/${departmentId}/courses`);
+                const courses = await res.json();
+                if (!courses.length) {
+                    courseList.innerHTML = '<em style="color:#888;font-size:12px;">No courses found.</em>';
+                    return;
+                }
+                courseList.innerHTML = courses.map(c => `
+                    <label style="display:block; margin-bottom: 5px;">
+                        <input type="checkbox" name="newUserCourses" value="${c.id}"> ${c.name}
+                    </label>
+                `).join('');
+            });
+
+            document.getElementById('confirmAddUser').addEventListener('click', async () => {
+                const name = document.getElementById('newUserName').value.trim();
+                const email = document.getElementById('newUserEmail').value.trim();
+                const password = document.getElementById('newUserPassword').value.trim();
+                const role = document.getElementById('newUserRole').value;
+                const deptName = document.getElementById('newUserDept').value.trim();
+
+                let departmentId = null;
+                if (role !== 'admin' && deptName) departmentId = getDatalistId('newUserDeptList', deptName);
+
+                if (!name || !email || !password) return alert('Fill all required fields.');
+                if (role !== 'admin' && deptName && !departmentId) return alert('Invalid department selected.');
+
+                const courses = Array.from(document.querySelectorAll('input[name="newUserCourses"]:checked')).map(cb => cb.value);
+
+                const res = await fetch('/api/signup', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, email, password, role, departmentId, courses })
+                });
+                if (!res.ok) return alert('Failed to create user. Email may be taken.');
+
+                ['newUserName', 'newUserEmail', 'newUserPassword', 'newUserDept'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('newUserCourseList').innerHTML = '<em style="color:#888;font-size:12px;">Select a department first to load courses.</em>';
+                closeModal('addUserModal');
+                refreshAll();
+            });
+
+            // ── Add Course ──────────────────────────────────────────────
+            document.getElementById('toggleAddCourse').addEventListener('click', () => openModal('addCourseModal'));
+            document.getElementById('cancelAddCourse').addEventListener('click', () => closeModal('addCourseModal'));
+
+            document.getElementById('confirmAddCourse').addEventListener('click', async () => {
+                const name = document.getElementById('newCourseName').value.trim();
+                const deptName = document.getElementById('newCourseDept').value.trim();
+                const teacherName = document.getElementById('newCourseTeacher').value.trim();
+
+                if (!name || !deptName) return alert('Course Name and Department are required.');
+
+                const departmentId = getDatalistId('courseDeptList', deptName);
+                if (!departmentId) return alert('Invalid department.');
+
+                const teacherId = teacherName ? getDatalistId('courseTeacherList', teacherName) : null;
+                if (teacherName && !teacherId) return alert('Invalid teacher selected.');
+
+                const res = await fetch('/api/admin/courses', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, departmentId, teacherId, credits: 3 })
+                });
+                if (!res.ok) return alert('Failed to create course. It may already exist.');
+
+                ['newCourseName', 'newCourseDept', 'newCourseTeacher'].forEach(id => document.getElementById(id).value = '');
+                closeModal('addCourseModal');
+                refreshAll();
+            });
+
+            // ── Edit Course Modal ───────────────────────────────────────
+            let editingCourseId = null;
+            function showEditCourseModal(course) {
+                editingCourseId = course.id;
+                document.getElementById('editCourseName').value = course.name;
+                document.getElementById('editCourseDept').value = course.department_name || '';
+                document.getElementById('editCourseTeacher').value = course.teachers || '';
+                openModal('editCourseModal');
+            }
+            document.getElementById('cancelEditCourse').addEventListener('click', () => closeModal('editCourseModal'));
+            document.getElementById('saveEditCourse').addEventListener('click', async () => {
+                const name = document.getElementById('editCourseName').value.trim();
+                const deptName = document.getElementById('editCourseDept').value.trim();
+                const teacherName = document.getElementById('editCourseTeacher').value.trim();
+
+                if (!name || !deptName) return alert('Name and Department required.');
+                const departmentId = getDatalistId('editCourseDeptList', deptName);
+                if (!departmentId) return alert('Invalid department.');
+
+                const teacherId = teacherName ? getDatalistId('editCourseTeacherList', teacherName) : null;
+
+                const res = await fetch(`/api/admin/courses/${editingCourseId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, departmentId, teacherId, credits: 3 })
+                });
+                if (!res.ok) return alert('Failed to update course.');
+                closeModal('editCourseModal');
+                refreshAll();
+            });
+
+            // ── Edit User Modal ─────────────────────────────────────────
+            let editingUserId = null;
+            function showEditUserModal(user) {
+                editingUserId = user.id;
+                document.getElementById('editUserName').value = user.name;
+                document.getElementById('editUserEmail').value = user.email;
+                document.getElementById('editUserRole').value = user.role;
+                const deptWrap = document.getElementById('editUserDeptWrap');
+                if (user.role === 'admin') deptWrap.classList.add('hidden');
+                else {
+                    deptWrap.classList.remove('hidden');
+                    document.getElementById('editUserDept').value = user.department_name || '';
+                }
+                openModal('editUserModal');
+            }
+            document.getElementById('cancelEditUser').addEventListener('click', () => closeModal('editUserModal'));
+
+            document.getElementById('editUserRole').addEventListener('change', e => {
+                const wrap = document.getElementById('editUserDeptWrap');
+                if (e.target.value === 'admin') wrap.classList.add('hidden');
+                else wrap.classList.remove('hidden');
+            });
+
+            document.getElementById('saveEditUser').addEventListener('click', async () => {
+                const name = document.getElementById('editUserName').value.trim();
+                const role = document.getElementById('editUserRole').value;
+                const deptName = document.getElementById('editUserDept').value.trim();
+
+                let departmentId = null;
+                if (role !== 'admin' && deptName) departmentId = getDatalistId('editUserDeptList', deptName);
+
+                const res = await fetch(`/api/admin/users/${editingUserId}`, {
+                    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name, role, departmentId })
+                });
+                if (!res.ok) return alert('Failed to update user.');
+                closeModal('editUserModal');
+                refreshAll();
+            });
+
+            // ── Base ────────────────────────────────────────────────────
+            refreshAll();
+        });
     </script>
 </body>
+
 </html>

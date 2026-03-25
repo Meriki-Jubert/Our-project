@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="StudentHub.css">
 </head>
+
 <body id="login">
     <!-- Header -->
     <header>
@@ -24,7 +26,7 @@
             </nav>
         </div>
     </header>
-    
+
     <!-- Authentification Container -->
     <div class="auth-container">
         <div class="container">
@@ -33,7 +35,7 @@
                     <h2>Welcome Back!</h2>
                     <p>Sign in to access your StudentHub account</p>
                 </div>
-                
+
                 <!-- Login Form -->
                 <div class="card-body">
                     <form id="loginForm">
@@ -41,29 +43,31 @@
                             <label for="loginEmail">Email Address</label>
                             <div class="input-with-icon">
                                 <i class="fas fa-envelope"></i>
-                                <input type="email" id="loginEmail" class="form-control" placeholder="Enter your email" required>
+                                <input type="email" id="loginEmail" class="form-control" placeholder="Enter your email"
+                                    required>
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="loginPassword">Password</label>
                             <div class="input-with-icon">
                                 <i class="fas fa-lock"></i>
-                                <input type="password" id="loginPassword" class="form-control" placeholder="Enter your password" required>
+                                <input type="password" id="loginPassword" class="form-control"
+                                    placeholder="Enter your password" required>
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <div class="input-with-icon">
                                 <button type="submit" class="btn">Sign In</button>
                             </div>
                         </div>
-                        
+
                         <div class="form-footer">
                             <a href="#" id="forgotPassword">Forgot Password?</a>
                             <p>Don't have an account? <a href="#" id="showSignup">Sign Up</a></p>
                         </div>
-                        
+
                         <div class="social-login">
                             <div class="social-btn google">
                                 <i class="fab fa-google"></i>
@@ -76,30 +80,33 @@
                             </div>
                         </div>
                     </form>
-                    
+
                     <!-- Signup Form -->
                     <form id="signupForm" class="hidden">
                         <div class="form-group">
                             <label for="signupName">Full Name</label>
                             <div class="input-with-icon">
                                 <i class="fas fa-user"></i>
-                                <input type="text" id="signupName" class="form-control" placeholder="Enter your full name" required>
+                                <input type="text" id="signupName" class="form-control"
+                                    placeholder="Enter your full name" required>
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="signupEmail">Email Address</label>
                             <div class="input-with-icon">
                                 <i class="fas fa-envelope"></i>
-                                <input type="email" id="signupEmail" class="form-control" placeholder="Enter your email" required>
+                                <input type="email" id="signupEmail" class="form-control" placeholder="Enter your email"
+                                    required>
                             </div>
                         </div>
-                        
+
                         <div class="form-group">
                             <label for="signupPassword">Password</label>
                             <div class="input-with-icon">
                                 <i class="fas fa-lock"></i>
-                                <input type="password" id="signupPassword" class="form-control" placeholder="Create a password" required>
+                                <input type="password" id="signupPassword" class="form-control"
+                                    placeholder="Create a password" required>
                             </div>
                         </div>
 
@@ -107,46 +114,34 @@
                             <label for="signupConfirmPassword">Confirm Password</label>
                             <div class="input-with-icon">
                                 <i class="fas fa-lock" id="hid"></i>
-                                <input type="password" id="signupConfirmPassword" class="form-control" placeholder="Confirm your password" required>
+                                <input type="password" id="signupConfirmPassword" class="form-control"
+                                    placeholder="Confirm your password" required>
                             </div>
                         </div>
 
-                        <div class="form-group"> 
+                        <div class="form-group">
                             <label for="signupRole">Select Role <i class="fas fa-book-reader"></i></label>
-                                <select id="signupRole">
-                                    <option>
-                                        Student
-                                    </option>
-                                    <option>
-                                        Teacher
-                                    </option>
-                                </select>
-                        </div>
-                        
-                        <div class="form-group hidden" id="departmentGroup">
-                            <label for="signupDepartment">Select Department <i class="fas fa-building"></i></label>
-                            <select id="signupDepartment">
-                                <option value="">Select department</option>
+                            <select id="signupRole" required>
+                                <option value="student">Student</option>
+                                <option value="teacher">Teacher</option>
                             </select>
                         </div>
-                        
+
+                        <div class="form-group" id="departmentGroup">
+                            <label for="signupDepartment">Select Department <i class="fas fa-building"></i></label>
+                            <select id="signupDepartment" class="form-control" required>
+                                <option value="">Loading departments...</option>
+                            </select>
+                        </div>
+
                         <div class="form-group hidden" id="studentCourseGroup">
                             <label>Select Courses <i class="fas fa-book-reader"></i></label>
                             <div class="course-checkboxes" id="studentCourseList"></div>
                         </div>
-                        
+
                         <div class="form-group hidden" id="courseGroup">
                             <label>Select Courses <i class="fas fa-book-reader"></i></label>
-                            <div class="course-checkboxes">
-                                <label><input type="checkbox" name="courses" value="Architecture"/> Architecture</label>
-                                <label><input type="checkbox" name="courses" value="Basic Environment II" /> Basic Environment II</label>
-                                <label><input type="checkbox" name="courses" value="Database & MERISE"/> Database & MERISE</label>
-                                <label><input type="checkbox" name="courses" value="Engineering Maths " /> Engineering Maths </label>
-                                <label><input type="checkbox" name="courses" value="Economics & Enterprise Organization" /> Economics & Enterprise Organization</label>
-                                <label><input type="checkbox" name="courses" value="General Accounting" /> General Accounting </label>
-                                <label><input type="checkbox" name="courses" value="Maintenance and Legal Regulations"/> Maintenance and Legal Regulations </label>
-                                <label><input type="checkbox" name="courses" value="Programming I" /> Programming I</label>
-                            </div>
+                            <div class="course-checkboxes"></div>
                         </div>
 
                         <div class="form-group">
@@ -158,7 +153,7 @@
                         <div class="form-footer">
                             <p>Already have an account? <a href="#" id="showLogin">Sign In</a></p>
                         </div>
-                        
+
                         <div class="social-login">
                             <div class="social-btn google">
                                 <i class="fab fa-google"></i>
@@ -175,7 +170,7 @@
             </div>
         </div>
     </div>
-    
+
     <!-- Footer -->
     <footer>
         <div class="container">
@@ -186,14 +181,14 @@
                 </div>
                 <p>Empowering educators and students with modern tools</p>
             </div>
-            
+
             <div class="footer-links">
                 <a href="index.html">Home</a>
                 <a href="#" class="emailButton">Contact</a>
                 <a href="#">Privacy Policy</a>
                 <a href="#">Terms of Service</a>
             </div>
-            
+
             <div class="copyright">
                 &copy; 2025 StudentHub. All rights reserved.
             </div>
@@ -201,4 +196,5 @@
     </footer>
     <script src="Student.js"></script>
 </body>
+
 </html>
