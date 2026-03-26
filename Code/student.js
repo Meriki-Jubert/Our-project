@@ -180,33 +180,123 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     // Student dashboard
     if (currentUser?.role === 'student') {
-        // Fetch only the student's enrolled courses dynamically
-        const res = await fetch(`/api/students/${encodeURIComponent(currentUser.email)}`);
-        const student = await res.json();
-        const gradesTable = document.getElementById('gradesTable');
-        if (!gradesTable) return;
-        gradesTable.innerHTML = '';
-        // Display only enrolled courses
-        if (student.grades) {
-            Object.entries(student.grades).forEach(([course, info]) => {
-                const grade = typeof info === 'object' ? (info.grade || '—') : (info || '—');
-                gradesTable.innerHTML += `<tr><td>${course}</td><td>${grade}</td></tr>`;
-            });
-        }
+        async function refreshDashboard() {
+            if (document.getElementById('userName')) {
+                document.getElementById('userName').textContent = currentUser.name;
+            }
+            // Fetch only the student's enrolled courses dynamically
+            const res = await fetch(`/api/students/${encodeURIComponent(currentUser.email)}`);
+            const student = await res.json();
+            const gradesTable = document.getElementById('gradesTable');
+            const subjectSelect = document.getElementById('subject');
 
-        // Display GPA
-        if (student.gpa !== null && student.gpa !== undefined) {
-            const sec = document.getElementById('gpaSection');
-            if (sec) sec.style.display = '';
-            const valEl = document.getElementById('gpaValue');
-            const badgeEl = document.getElementById('gpaClassBadge');
-            if (valEl) valEl.textContent = student.gpa.toFixed(2);
-            if (badgeEl) {
-                badgeEl.textContent = student.gpaClass || '';
-                const g = student.gpa;
-                badgeEl.style.background = g >= 3.5 ? '#2dc653' : g >= 3.0 ? '#4361ee' : g >= 2.0 ? '#f77f00' : '#ef233c';
+            if (gradesTable) gradesTable.innerHTML = '';
+            // Populate complaint dropdown with enrolled course names
+            if (subjectSelect) {
+                subjectSelect.innerHTML = '<option value="">Select a course...</option>';
+            }
+
+            if (student.grades) {
+                Object.entries(student.grades).forEach(([course, info]) => {
+                    const grade = typeof info === 'object' ? (info.grade || '—') : (info || '—');
+                    if (gradesTable) gradesTable.innerHTML += `<tr><td>${course}</td><td>${grade}</td></tr>`;
+                    if (subjectSelect) {
+                        const opt = document.createElement('option');
+                        opt.value = course;
+                        opt.textContent = course;
+                        subjectSelect.appendChild(opt);
+                    }
+                });
+            }
+
+            // Display GPA
+            if (student.gpa !== null && student.gpa !== undefined) {
+                const sec = document.getElementById('gpaSection');
+                if (sec) sec.style.display = '';
+                const valEl = document.getElementById('gpaValue');
+                const badgeEl = document.getElementById('gpaClassBadge');
+                if (valEl) valEl.textContent = student.gpa.toFixed(2);
+                if (badgeEl) {
+                    badgeEl.textContent = student.gpaClass || '';
+                    const g = student.gpa;
+                    badgeEl.style.background = g >= 3.5 ? '#2dc653' : g >= 3.0 ? '#4361ee' : g >= 2.0 ? '#f77f00' : '#ef233c';
+                }
             }
         }
+        refreshDashboard();
+
+        // ── Student Profile & Enrollment Management ──
+        const manageEnrollmentBtn = document.getElementById('manageEnrollmentBtn');
+        const enrollmentModal = document.getElementById('enrollmentModal');
+        const closeEnrollmentModal = document.getElementById('closeEnrollmentModal');
+        const saveEnrollmentBtn = document.getElementById('saveEnrollmentBtn');
+        const editStudentName = document.getElementById('editStudentName');
+        const editStudentDept = document.getElementById('editStudentDept');
+        const editStudentCourseList = document.getElementById('editStudentCourseList');
+
+        async function openEnrollmentModal() {
+            if (!currentUser) return;
+            try {
+                // Fetch current details
+                const res = await fetch(`/api/students/${currentUser.id}/details`);
+                const details = await res.json();
+
+                // Populate Name
+                if (editStudentName) editStudentName.value = details.name;
+
+                // Load Departments
+                const deptRes = await fetch('/api/departments');
+                const depts = await deptRes.json();
+                if (editStudentDept) {
+                    editStudentDept.innerHTML = depts.map(d => `<option value="${d.id}" ${d.id === details.department_id ? 'selected' : ''}>${d.name}</option>`).join('');
+                }
+
+                // Load Courses for current/selected department
+                await refreshManageCourseList(details.department_id, details.enrolledCourseIds);
+
+                enrollmentModal.classList.add('open');
+            } catch (e) { console.error(e); }
+        }
+
+        async function refreshManageCourseList(deptId, enrolledIds = []) {
+            if (!deptId || !editStudentCourseList) return;
+            const res = await fetch(`/api/departments/${deptId}/courses`);
+            const courses = await res.json();
+            editStudentCourseList.innerHTML = courses.length ? courses.map(c => `
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.9rem; background:#f4f7f6; padding:8px; border-radius:6px; cursor:pointer;">
+                    <input type="checkbox" name="manageCourse" value="${c.id}" ${enrolledIds.includes(c.id) ? 'checked' : ''}>
+                    ${c.name}
+                </label>
+            `).join('') : '<p style="color:#888; grid-column: 1 / -1; font-size: 0.9rem;">No courses available in this department.</p>';
+        }
+
+        editStudentDept?.addEventListener('change', () => refreshManageCourseList(editStudentDept.value));
+        manageEnrollmentBtn?.addEventListener('click', openEnrollmentModal);
+        closeEnrollmentModal?.addEventListener('click', () => enrollmentModal.classList.remove('open'));
+
+        saveEnrollmentBtn?.addEventListener('click', async () => {
+            const name = editStudentName ? editStudentName.value.trim() : currentUser.name;
+            const departmentId = editStudentDept ? editStudentDept.value : currentUser.department_id;
+            const courseIds = Array.from(document.querySelectorAll('input[name="manageCourse"]:checked')).map(cb => cb.value);
+
+            if (!name) return alert('Name is required');
+
+            const res = await fetch(`/api/students/${currentUser.id}/sync-enrollment`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, departmentId, courseIds })
+            });
+
+            if (res.ok) {
+                alert('Profile and enrollment updated!');
+                enrollmentModal.classList.remove('open');
+                currentUser.name = name;
+                localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                location.reload();
+            } else {
+                alert('Failed to update.');
+            }
+        });
 
         const reportForm = document.getElementById('reportForm');
 
@@ -236,6 +326,7 @@ document.addEventListener('DOMContentLoaded', async function () {
                 if (res.ok) {
                     alert('Issue reported successfully.');
                     reportForm.reset();
+                    loadMyComplaints();
                 } else {
                     alert(data.error || 'Failed to report issue.');
                 }
@@ -243,6 +334,36 @@ document.addEventListener('DOMContentLoaded', async function () {
                 alert('Error reporting issue: ' + err.message);
             }
         });
+
+        // Load student's own complaints with attended status
+        async function loadMyComplaints() {
+            const container = document.getElementById('myComplaintsContainer');
+            if (!container) return;
+            try {
+                const res = await fetch(`/api/students/${currentUser.id}/complaints`);
+                const complaints = await res.json();
+                if (!complaints.length) {
+                    container.innerHTML = '<p style="color:#aaa; font-size:0.9rem;">You have not reported any issues yet.</p>';
+                    return;
+                }
+                container.innerHTML = complaints.map(c => {
+                    const attended = c.attended === 1;
+                    return `
+                    <div style="background:${attended ? '#f0faf4' : '#fff8f0'}; border:1px solid ${attended ? '#2dc653' : '#f77f00'}; border-left:4px solid ${attended ? '#2dc653' : '#f77f00'}; border-radius:8px; padding:12px 14px; margin-bottom:10px;">
+                        <p style="margin:0 0 4px;"><strong>📚 ${c.subject}</strong></p>
+                        <p style="margin:0 0 6px; color:#555; font-size:0.9rem;">${c.message}</p>
+                        <div style="display:flex; justify-content:space-between; align-items:center;">
+                            <span style="font-size:0.78rem; color:#aaa;">🕐 ${new Date(c.reported_at).toLocaleDateString(undefined, {year:'numeric',month:'short',day:'numeric'})}</span>
+                            ${attended
+                                ? '<span style="background:#2dc653; color:white; font-size:0.75rem; padding:2px 10px; border-radius:12px;">✓ Attended</span>'
+                                : '<span style="background:#f77f00; color:white; font-size:0.75rem; padding:2px 10px; border-radius:12px;">⏳ Pending</span>'
+                            }
+                        </div>
+                    </div>`;
+                }).join('');
+            } catch (e) { container.innerHTML = '<p style="color:red; font-size:0.9rem;">Could not load complaints.</p>'; }
+        }
+        loadMyComplaints();
     }
 
     // Teacher dashboard
@@ -253,53 +374,80 @@ document.addEventListener('DOMContentLoaded', async function () {
 
         if (clearAllBtn) {
             clearAllBtn.addEventListener('click', async () => {
-                if (confirm('Are you sure you want to delete all complaints?')) {
-                    await fetch('/api/complaints', { method: 'DELETE' });
-                    fetchComplaints();
+                if (confirm('Are you sure you want to delete all your complaints?')) {
+                    // Only delete complaints related to this teacher's courses
+                    const coursesRes = await fetch(`/api/teachers/${currentUser.id}/courses`);
+                    const teacherCourses = await coursesRes.json();
+                    if (teacherCourses.length > 0) {
+                        await fetch(`/api/complaints?courses=${encodeURIComponent(teacherCourses.join(','))}`, { method: 'DELETE' });
+                    }
+                    fetchComplaints(teacherCourses);
                 }
             });
+        }
+
+        function fmtDate(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+                + ' ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
         }
 
         async function fetchComplaints(courses) {
             const container = document.getElementById('notificationContainer');
             if (!container) return;
             if (!courses || courses.length === 0) {
-                container.innerHTML = '<p>No complaints available. You have no courses.</p>';
+                container.innerHTML = '<p style="color:#888;">No complaints available. You have no assigned courses.</p>';
                 return;
             }
-            container.innerHTML = '<p>Loading complaints....</p>';
+            container.innerHTML = '<p style="color:#888;">Loading...</p>';
             try {
                 const courseParams = courses.join(',');
                 const res = await fetch(`/api/complaints?courses=${encodeURIComponent(courseParams)}`);
                 const complaints = await res.json();
 
                 if (complaints.length === 0) {
-                    container.innerHTML = '<p>No complaints available.</p>';
+                    container.innerHTML = '<p style="color:#888;">No complaints for your courses.</p>';
                     return;
                 }
 
                 container.innerHTML = '';
                 complaints.forEach(complaint => {
+                    const isAttended = complaint.attended === 1;
                     const div = document.createElement('div');
-                    div.classList.add('notification-box');
+                    div.style.cssText = `background:${isAttended ? '#f0faf4' : '#f8f9fc'}; border:1px solid ${isAttended ? '#2dc653' : '#e8ecf0'}; border-left:4px solid ${isAttended ? '#2dc653' : '#4361ee'}; border-radius:8px; padding:14px 16px; margin-bottom:12px; opacity:${isAttended ? '0.8' : '1'};`;
                     div.innerHTML = `
-                        <p><strong>Course:</strong> ${complaint.subject}</p>
-                        <p><strong>Student:</strong> ${complaint.student_name} (ID: ${complaint.student_id})</p>
-                        <p><strong>Message:</strong> ${complaint.message}</p>
-                        <p><strong>Reported At:</strong> ${fmtDate(complaint.reported_at)}</p>
-                        <button data-id="${complaint.id}" class="btn delete-btn">Delete</button>
-                        <hr/>
+                        <div style="display:flex; justify-content:space-between; align-items:flex-start; flex-wrap:wrap; gap:8px;">
+                            <div style="flex:1;">
+                                <p style="margin:0 0 4px;"><strong>📚 Course:</strong> ${complaint.subject}</p>
+                                <p style="margin:0 0 4px;"><strong>👤 Student:</strong> ${complaint.student_name}</p>
+                                <p style="margin:0 0 4px;"><strong>💬 Message:</strong> ${complaint.message}</p>
+                                <p style="margin:0; font-size:0.82rem; color:#aaa;">🕐 ${fmtDate(complaint.reported_at)}</p>
+                                ${isAttended ? '<span style="display:inline-block; margin-top:6px; background:#2dc653; color:white; font-size:0.75rem; padding:2px 10px; border-radius:12px;">✓ Attended</span>' : ''}
+                            </div>
+                            <div style="display:flex; flex-direction:column; gap:6px; flex-shrink:0;">
+                                ${!isAttended ? `<button data-id="${complaint.id}" class="btn btn-sm btn-success attend-btn" style="white-space:nowrap;"><i class="fas fa-check"></i> Mark Attended</button>` : ''}
+                                <button data-id="${complaint.id}" class="btn btn-sm btn-danger delete-btn" style="white-space:nowrap;"><i class="fas fa-trash"></i> Delete</button>
+                            </div>
+                        </div>
                     `;
                     container.appendChild(div);
                 });
 
+                container.querySelectorAll('.attend-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        const id = e.target.closest('button').getAttribute('data-id');
+                        const r = await fetch(`/api/complaints/${id}/attend`, { method: 'PATCH' });
+                        if (r.ok) fetchComplaints(courses);
+                    });
+                });
                 container.querySelectorAll('.delete-btn').forEach(btn => {
                     btn.addEventListener('click', async (e) => {
-                        await deleteComplaint(e.target.getAttribute('data-id'), courses);
+                        await deleteComplaint(e.target.closest('button').getAttribute('data-id'), courses);
                     });
                 });
             } catch (err) {
-                container.innerHTML = `<p>Error fetching complaints: ${err.message}</p>`;
+                container.innerHTML = `<p style="color:red;">Error fetching complaints: ${err.message}</p>`;
             }
         }
 

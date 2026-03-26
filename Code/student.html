@@ -31,6 +31,9 @@
     <div class="container">
       <h2 style="display: none;" <span id="studentName"></span></h2>
       <h2 class="welcome-text">Welcome, <span id="userName">@username</span></h2>
+      <button class="btn btn-sm" id="manageEnrollmentBtn" style="margin-bottom: 24px; padding: 10px 18px;">
+        <i class="fas fa-edit"></i> Profile & Enrollment
+      </button>
 
       <div class="dashboard-section gpa-section" id="gpaSection" style="margin-bottom:32px;display:none">
         <h3>Your GPA</h3>
@@ -61,10 +64,17 @@
       <div class="dashboard-section">
         <h3>Report Grade Issue</h3>
         <form id="reportForm">
-          <input type="text" id="subject" placeholder="Course" required>
+          <select id="subject" required style="width:100%; margin-bottom:10px; padding:10px; border-radius:8px; border:1px solid #ddd;">
+            <option value="">Select a course...</option>
+          </select>
           <textarea id="message" placeholder="Describe your issue..." required></textarea>
           <button class="btn" type="submit">Submit</button>
         </form>
+      </div>
+
+      <div class="dashboard-section">
+        <h3>My Complaints</h3>
+        <div id="myComplaintsContainer"><p style="color:#aaa; font-size:0.9rem;">Loading your complaints...</p></div>
       </div>
     </div>
 
@@ -92,6 +102,40 @@
       </div>
     </div>
   </footer>
+  <!-- Enrollment Modal -->
+  <div id="enrollmentModal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3><i class="fas fa-user-edit"></i> Profile & Enrollment</h3>
+        <button class="modal-close" id="closeEnrollmentModal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="admin-form-grid">
+          <div class="form-group-inline">
+            <label>Full Name</label>
+            <input type="text" id="editStudentName" placeholder="Your Name" />
+          </div>
+          <div class="form-group-inline">
+            <label>Department</label>
+            <select id="editStudentDept"></select>
+          </div>
+          <div id="editStudentCourseWrap" class="form-group-inline">
+            <label>Select Your Courses</label>
+            <div id="editStudentCourseList"
+              style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px;">
+              <!-- Dynamic checkboxes -->
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-sm btn-success" id="saveEnrollmentBtn">
+          <i class="fas fa-save"></i> Update Enrollment
+        </button>
+      </div>
+    </div>
+  </div>
+
   <script src="student.js"></script>
   <script>
     // Clear localStorage and redirect on logout

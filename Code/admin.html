@@ -38,6 +38,8 @@
             </div>
             <div
                 style="display: flex; flex-direction: column; align-items: center; background: white; padding: 10px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                <select id="networkIpSelect"
+                    style="margin-bottom: 5px; font-size: 0.8rem; padding: 2px 5px; border: 1px solid #ccc; border-radius: 4px; display: none; width: 100%; outline: none;"></select>
                 <img id="networkQrCode" src="" alt="QR Code"
                     style="width: 140px; height: 140px; display: none; object-fit: contain;" />
                 <span id="networkUrl"
@@ -482,10 +484,32 @@
                         const qrData = await qrRes.json();
                         const qrImg = document.getElementById('networkQrCode');
                         const urlSpan = document.getElementById('networkUrl');
+                        const ipSelect = document.getElementById('networkIpSelect');
+
                         if (qrImg && urlSpan) {
                             qrImg.src = qrData.qrCode;
                             qrImg.style.display = 'block';
                             urlSpan.textContent = qrData.url.replace(/^https?:\/\//, '');
+                        }
+
+                        if (ipSelect && ipSelect.options.length === 0 && qrData.ips && qrData.ips.length > 0) {
+                            ipSelect.style.display = 'block';
+                            qrData.ips.forEach(i => {
+                                const opt = document.createElement('option');
+                                opt.value = i;
+                                opt.textContent = i;
+                                if (qrData.url.includes(i)) opt.selected = true;
+                                ipSelect.appendChild(opt);
+                            });
+                            ipSelect.addEventListener('change', async (e) => {
+                                const newIp = e.target.value;
+                                const newRes = await fetch(`/api/qrcode?ip=${newIp}`);
+                                if (newRes.ok) {
+                                    const newData = await newRes.json();
+                                    qrImg.src = newData.qrCode;
+                                    urlSpan.textContent = newData.url.replace(/^https?:\/\//, '');
+                                }
+                            });
                         }
                     }
                 } catch (e) { console.error('Failed to load QR code', e); }
@@ -763,6 +787,7 @@
 
             document.getElementById('saveEditUser').addEventListener('click', async () => {
                 const name = document.getElementById('editUserName').value.trim();
+                const email = document.getElementById('editUserEmail').value.trim();
                 const role = document.getElementById('editUserRole').value;
                 const deptName = document.getElementById('editUserDept').value.trim();
 
@@ -771,7 +796,7 @@
 
                 const res = await fetch(`/api/admin/users/${editingUserId}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, role, departmentId })
+                    body: JSON.stringify({ name, email, role, departmentId })
                 });
                 if (!res.ok) return alert('Failed to update user.');
                 closeModal('editUserModal');
