@@ -36,29 +36,34 @@
       </button>
 
       <div class="dashboard-section gpa-section" id="gpaSection" style="margin-bottom:32px;display:none">
-        <h3>Your GPA</h3>
-        <div class="gpa-display">
-          <span class="gpa-score" id="gpaValue">—</span>
-          <span class="gpa-scale">/ 4.0</span>
+        <h3>Academic Standing</h3>
+        <div style="display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 20px;">
+          <div style="text-align: center;">
+            <div class="gpa-display" style="margin-bottom: 5px;">
+              <span class="gpa-score" id="gpaValue">—</span>
+              <span class="gpa-scale">/ 4.0</span>
+            </div>
+            <span class="gpa-class-badge" id="gpaClassBadge"></span>
+          </div>
+          <div style="text-align: center; border-left: 2px solid #e8ecf0; padding-left: 20px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #4361ee;" id="totalAttempted">—</div>
+            <div style="font-size: 0.85rem; color: #666; text-transform: uppercase; letter-spacing: 1px;">Credits Attempted</div>
+          </div>
+          <div style="text-align: center; border-left: 2px solid #e8ecf0; padding-left: 20px;">
+            <div style="font-size: 1.5rem; font-weight: bold; color: #2dc653;" id="totalEarned">—</div>
+            <div style="font-size: 0.85rem; color: #666; text-transform: uppercase; letter-spacing: 1px;">Credits Earned</div>
+          </div>
         </div>
-        <div class="gpa-details">
-          <span class="gpa-class-badge" id="gpaClassBadge"></span>
-          <span class="gpa-note">GPA is calculated based on your graded courses.</span>
+        <div class="gpa-details" style="margin-top: 15px; border-top: 1px solid #f0f0f0; padding-top: 10px;">
+          <span class="gpa-note">Cumulative performance across all semesters.</span>
         </div>
       </div>
 
       <div class="dashboard-section">
         <h3>Your Grades</h3>
-        <table class="dashboard-table">
-          <thead>
-            <tr>
-              <th>Course</th>
-              <th>Grade</th>
-            </tr>
-          </thead>
-          <tbody id="gradesTable">
-          </tbody>
-        </table>
+        <div id="gradesTableWrap">
+          <p style="color:#aaa; font-size:0.9rem;">Loading your grades...</p>
+        </div>
       </div>
 
       <div class="dashboard-section">

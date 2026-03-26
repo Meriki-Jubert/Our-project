@@ -231,6 +231,10 @@
                                 <input type="text" id="newCourseName" placeholder="e.g. Introduction to Biology" />
                             </div>
                             <div class="form-group-inline">
+                                <label>Credits</label>
+                                <input type="number" id="newCourseCredits" value="3" min="1" max="10" />
+                            </div>
+                            <div class="form-group-inline">
                                 <label>Department</label>
                                 <input list="courseDeptList" id="newCourseDept" placeholder="Search department..." />
                                 <datalist id="courseDeptList"></datalist>
@@ -265,6 +269,53 @@
                         <tr>
                             <td colspan="6" class="table-loading">Loading courses…</td>
                         </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <!-- Semester Management -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-calendar-alt"></i> Semester Management</h2>
+                <button class="btn btn-sm btn-success" id="toggleAddSemester">
+                    <i class="fas fa-plus"></i> Add Semester
+                </button>
+            </div>
+            <!-- Add Semester Modal -->
+            <div id="addSemesterModal" class="modal-overlay">
+                <div class="modal-box">
+                    <div class="modal-header">
+                        <h3><i class="fas fa-calendar-alt"></i> Add Semester</h3>
+                        <button class="modal-close" id="cancelAddSemester">&times;</button>
+                    </div>
+                    <div class="modal-body">
+                        <div class="admin-form-grid">
+                            <div class="form-group-inline">
+                                <label>Semester Name</label>
+                                <input type="text" id="newSemesterName" placeholder="e.g. Semester 1 — 2024/2025" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button class="btn btn-sm btn-success" id="confirmAddSemester">
+                            <i class="fas fa-check"></i> Create Semester
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div id="semestersTableWrap">
+                <table class="dashboard-table admin-table">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Semester Name</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="semestersTableBody">
+                        <tr><td colspan="4" class="table-loading">Loading semesters…</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -310,6 +361,10 @@
                         <div class="form-group-inline">
                             <label>Course Name</label>
                             <input type="text" id="editCourseName" />
+                        </div>
+                        <div class="form-group-inline">
+                            <label>Credits</label>
+                            <input type="number" id="editCourseCredits" value="3" min="1" max="10" />
                         </div>
                         <div class="form-group-inline">
                             <label>Department</label>
@@ -612,9 +667,76 @@
                 loadFeedback(); loadStats();
             });
 
+            async function loadSemesters() {
+                const res = await fetch('/api/semesters');
+                const semesters = await res.json();
+                const tbody = document.getElementById('semestersTableBody');
+                if (!semesters.length) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No semesters yet. Add one to start grading.</td></tr>';
+                    return;
+                }
+                tbody.innerHTML = semesters.map((s, i) => {
+                    const currentBadge = s.is_current ? '<span class="role-badge" style="background:#2dc653">Current</span>' : '';
+                    const lockBadge = s.locked ? '<span class="role-badge" style="background:#e63946">Locked</span>' : '<span class="role-badge" style="background:#4361ee">Open</span>';
+                    return `<tr>
+                        <td>${i + 1}</td>
+                        <td><strong>${s.name}</strong></td>
+                        <td>${currentBadge} ${lockBadge}</td>
+                        <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                            ${!s.is_current ? `<button class="btn btn-sm btn-success set-current-btn" data-id="${s.id}"><i class="fas fa-star"></i> Set Current</button>` : ''}
+                            <button class="btn btn-sm ${s.locked ? 'btn-primary' : 'btn-danger'} toggle-lock-btn" data-id="${s.id}" data-locked="${s.locked}">
+                                <i class="fas fa-${s.locked ? 'unlock' : 'lock'}"></i> ${s.locked ? 'Unlock' : 'Lock'}
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-sem-btn" data-id="${s.id}" data-name="${s.name}"><i class="fas fa-trash"></i></button>
+                        </td>
+                    </tr>`;
+                }).join('');
+                
+                tbody.querySelectorAll('.set-current-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        await fetch(`/api/admin/semesters/${btn.dataset.id}/set-current`, { method: 'PATCH' });
+                        loadSemesters();
+                    });
+                });
+                
+                tbody.querySelectorAll('.toggle-lock-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        const r = await fetch(`/api/admin/semesters/${btn.dataset.id}/toggle-lock`, { method: 'PATCH' });
+                        const d = await r.json();
+                        alert(d.message);
+                        loadSemesters();
+                    });
+                });
+                
+                tbody.querySelectorAll('.delete-sem-btn').forEach(btn => {
+                    btn.addEventListener('click', async () => {
+                        if (!confirm(`Delete semester "${btn.dataset.name}"? This will not delete grades.`)) return;
+                        await fetch(`/api/admin/semesters/${btn.dataset.id}`, { method: 'DELETE' });
+                        loadSemesters();
+                    });
+                });
+            }
+
+            // ── Add Semester ─────────────────────────────────────────────
+            document.getElementById('toggleAddSemester').addEventListener('click', () => openModal('addSemesterModal'));
+            document.getElementById('cancelAddSemester').addEventListener('click', () => closeModal('addSemesterModal'));
+            document.getElementById('confirmAddSemester').addEventListener('click', async () => {
+                const name = document.getElementById('newSemesterName').value.trim();
+                if (!name) return alert('Semester name is required');
+                const res = await fetch('/api/admin/semesters', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+                if (!res.ok) return alert('Failed to create semester. It may already exist.');
+                document.getElementById('newSemesterName').value = '';
+                closeModal('addSemesterModal');
+                loadSemesters();
+            });
+
             // ── Refresh Handler ─────────────────────────────────────────
             async function refreshAll() {
-                await Promise.all([loadDepts(), fetchTeachers(), loadStats(), loadUsers(), loadCourses(), loadFeedback()]);
+                await Promise.all([loadDepts(), fetchTeachers(), loadStats(), loadUsers(), loadCourses(), loadFeedback(), loadSemesters()]);
             }
 
             // ── Add Dept ────────────────────────────────────────────────
@@ -710,6 +832,7 @@
 
             document.getElementById('confirmAddCourse').addEventListener('click', async () => {
                 const name = document.getElementById('newCourseName').value.trim();
+                const credits = parseInt(document.getElementById('newCourseCredits').value) || 3;
                 const deptName = document.getElementById('newCourseDept').value.trim();
                 const teacherName = document.getElementById('newCourseTeacher').value.trim();
 
@@ -723,11 +846,12 @@
 
                 const res = await fetch('/api/admin/courses', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, departmentId, teacherId, credits: 3 })
+                    body: JSON.stringify({ name, departmentId, teacherId, credits })
                 });
                 if (!res.ok) return alert('Failed to create course. It may already exist.');
 
                 ['newCourseName', 'newCourseDept', 'newCourseTeacher'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('newCourseCredits').value = 3;
                 closeModal('addCourseModal');
                 refreshAll();
             });
@@ -737,6 +861,7 @@
             function showEditCourseModal(course) {
                 editingCourseId = course.id;
                 document.getElementById('editCourseName').value = course.name;
+                document.getElementById('editCourseCredits').value = course.credits || 3;
                 document.getElementById('editCourseDept').value = course.department_name || '';
                 document.getElementById('editCourseTeacher').value = course.teachers || '';
                 openModal('editCourseModal');
@@ -744,6 +869,7 @@
             document.getElementById('cancelEditCourse').addEventListener('click', () => closeModal('editCourseModal'));
             document.getElementById('saveEditCourse').addEventListener('click', async () => {
                 const name = document.getElementById('editCourseName').value.trim();
+                const credits = parseInt(document.getElementById('editCourseCredits').value) || 3;
                 const deptName = document.getElementById('editCourseDept').value.trim();
                 const teacherName = document.getElementById('editCourseTeacher').value.trim();
 
@@ -755,7 +881,7 @@
 
                 const res = await fetch(`/api/admin/courses/${editingCourseId}`, {
                     method: 'PUT', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ name, departmentId, teacherId, credits: 3 })
+                    body: JSON.stringify({ name, departmentId, teacherId, credits })
                 });
                 if (!res.ok) return alert('Failed to update course.');
                 closeModal('editCourseModal');

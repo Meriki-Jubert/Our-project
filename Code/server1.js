@@ -17,29 +17,37 @@ const db = new sqlite3.Database('./studenthub.db', err => {
     console.log('Connected to SQLite database');
 });
 
-// GPA: standard 4.0 scale
-const GRADE_POINTS = {
-    'A+': 4.0, 'A': 4.0, 'A-': 3.7,
-    'B+': 3.3, 'B': 3.0, 'B-': 2.7,
-    'C+': 2.3, 'C': 2.0, 'C-': 1.7,
-    'D+': 1.3, 'D': 1.0, 'D-': 0.7,
-    'E+': 0.5, 'E': 0.3, 'E-': 0.1,
-    'F+': 0.0, 'F': 0.0, 'F-': 0.0
-};
-
+// ── Grading helpers ──────────────────────────────────────────────────────────
+// Convert raw total (0-100) to letter grade using institution scale
+function totalToGrade(total, hasExam = true) {
+    if (!hasExam) return '—'; // No grade until exam is recorded
+    if (total >= 80) return 'A+';
+    if (total >= 75) return 'A';
+    if (total >= 70) return 'B+';
+    if (total >= 65) return 'B';
+    if (total >= 60) return 'C+';
+    if (total >= 55) return 'C';
+    if (total >= 50) return 'D';
+    return 'F';
+}
+function gradeToPoints(grade) {
+    const map = { 'A+': 4.0, 'A': 3.7, 'B+': 3.3, 'B': 3.0, 'C+': 2.5, 'C': 2.0, 'D': 1.0, 'F': 0.0 };
+    // Legacy grades fallback
+    const legacy = { 'A-': 3.7, 'B-': 2.7, 'C-': 1.7, 'D+': 1.3, 'D-': 0.7 };
+    return map[grade] ?? legacy[grade] ?? null;
+}
 function gpaClassification(gpa) {
     if (gpa >= 3.5) return 'First Class / Distinction';
     if (gpa >= 3.0) return 'Second Class Upper / Merit';
     if (gpa >= 2.0) return 'Second Class Lower / Pass';
     return 'Fail';
 }
-
 function calculateGPA(rows) {
     let totalQP = 0, totalCreds = 0;
     rows.forEach(({ grade, credits }) => {
         if (!grade || !credits) return;
-        const pts = GRADE_POINTS[grade.trim().toUpperCase()];
-        if (pts !== undefined) { totalQP += pts * credits; totalCreds += credits; }
+        const pts = gradeToPoints(grade.trim().toUpperCase());
+        if (pts !== null) { totalQP += pts * credits; totalCreds += credits; }
     });
     if (totalCreds === 0) return null;
     return parseFloat((totalQP / totalCreds).toFixed(2));
@@ -67,19 +75,34 @@ function initDB() {
             id INTEGER PRIMARY KEY AUTOINCREMENT, teacher_id INTEGER, course_id INTEGER,
             FOREIGN KEY(teacher_id) REFERENCES users(id), FOREIGN KEY(course_id) REFERENCES courses(id),
             UNIQUE(teacher_id, course_id))`);
+        db.run(`CREATE TABLE IF NOT EXISTS semesters (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            is_current INTEGER DEFAULT 0,
+            locked INTEGER DEFAULT 0)`);
         db.run(`CREATE TABLE IF NOT EXISTS student_grades (
-            id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER, course_id INTEGER, grade TEXT,
-            FOREIGN KEY(student_id) REFERENCES users(id), FOREIGN KEY(course_id) REFERENCES courses(id),
-            UNIQUE(student_id, course_id))`);
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            student_id INTEGER, course_id INTEGER, semester_id INTEGER,
+            ca_mark REAL, exam_mark REAL, total REAL, grade TEXT,
+            FOREIGN KEY(student_id) REFERENCES users(id),
+            FOREIGN KEY(course_id) REFERENCES courses(id),
+            FOREIGN KEY(semester_id) REFERENCES semesters(id),
+            UNIQUE(student_id, course_id, semester_id))`);
         db.run(`CREATE TABLE IF NOT EXISTS grade_issues (
             id INTEGER PRIMARY KEY AUTOINCREMENT, student_id INTEGER NOT NULL,
             student_name TEXT NOT NULL, subject TEXT NOT NULL,
             message TEXT NOT NULL, reported_at TEXT NOT NULL)`);
-        db.run(`ALTER TABLE courses ADD COLUMN credits INTEGER DEFAULT 3`, () => { });
-        db.run(`ALTER TABLE courses ADD COLUMN department_id INTEGER REFERENCES departments(id)`, () => { });
-        db.run(`ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id)`, () => { });
-        // Migration: add attended column to existing grade_issues tables
-        db.run(`ALTER TABLE grade_issues ADD COLUMN attended INTEGER DEFAULT 0`, () => { });
+        // Migrations (safe no-ops if column exists)
+        db.run(`ALTER TABLE courses ADD COLUMN credits INTEGER DEFAULT 3`, () => {});
+        db.run(`ALTER TABLE courses ADD COLUMN department_id INTEGER REFERENCES departments(id)`, () => {});
+        db.run(`ALTER TABLE users ADD COLUMN department_id INTEGER REFERENCES departments(id)`, () => {});
+        db.run(`ALTER TABLE grade_issues ADD COLUMN attended INTEGER DEFAULT 0`, () => {});
+        db.run(`ALTER TABLE student_grades ADD COLUMN semester_id INTEGER`, () => {});
+        db.run(`ALTER TABLE student_grades ADD COLUMN ca_mark REAL`, () => {});
+        db.run(`ALTER TABLE student_grades ADD COLUMN exam_mark REAL`, () => {});
+        db.run(`ALTER TABLE student_grades ADD COLUMN total REAL`, () => {});
+        // Ensure the unique constraint exists for UPSERT to work
+        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_student_course_semester ON student_grades(student_id, course_id, semester_id)`);
     });
 }
 initDB();
@@ -93,25 +116,28 @@ app.post('/api/signup', async (req, res) => {
     if (!password) return res.status(400).json({ message: 'Password required' });
     try {
         const hashedPassword = await bcrypt.hash(password, 10);
-        db.run(`INSERT INTO users (name,email,password,role,department_id) VALUES (?,?,?,?,?)`,
-            [name, email, hashedPassword, role, departmentId || null], function (err) {
-                if (err) return res.status(400).json({ message: 'User already exists or error.' });
-                const uid = this.lastID;
-                if (role === 'teacher' && courses.length > 0) {
-                    const stmt = db.prepare(`INSERT OR IGNORE INTO teacher_courses (teacher_id,course_id) VALUES (?,?)`);
-                    let rem = courses.length;
-                    courses.forEach(cid => {
-                        stmt.run(uid, cid, () => { if (--rem === 0) stmt.finalize(); });
-                    });
-                } else if (role === 'student' && courses.length > 0) {
-                    const stmt = db.prepare(`INSERT OR IGNORE INTO student_grades (student_id,course_id) VALUES (?,?)`);
-                    let rem = courses.length;
-                    courses.forEach(cid => {
-                        stmt.run(uid, cid, () => { if (--rem === 0) stmt.finalize(); });
-                    });
-                }
-                res.json({ message: 'Signup successful' });
-            });
+        db.get(`SELECT id FROM semesters WHERE is_current=1 LIMIT 1`, [], (err, sem) => {
+            const currentSemesterId = sem ? sem.id : null;
+            db.run(`INSERT INTO users (name,email,password,role,department_id) VALUES (?,?,?,?,?)`,
+                [name, email, hashedPassword, role, departmentId || null], function (err) {
+                    if (err) return res.status(400).json({ message: 'User already exists or error.' });
+                    const uid = this.lastID;
+                    if (role === 'teacher' && courses.length > 0) {
+                        const stmt = db.prepare(`INSERT OR IGNORE INTO teacher_courses (teacher_id,course_id) VALUES (?,?)`);
+                        let rem = courses.length;
+                        courses.forEach(cid => {
+                            stmt.run(uid, cid, () => { if (--rem === 0) stmt.finalize(); });
+                        });
+                    } else if (role === 'student' && courses.length > 0) {
+                        const stmt = db.prepare(`INSERT OR IGNORE INTO student_grades (student_id,course_id,semester_id) VALUES (?,?,?)`);
+                        let rem = courses.length;
+                        courses.forEach(cid => {
+                            stmt.run(uid, cid, currentSemesterId, () => { if (--rem === 0) stmt.finalize(); });
+                        });
+                    }
+                    res.json({ message: 'Signup successful' });
+                });
+        });
     } catch (e) {
         res.status(500).json({ message: 'Server error' });
     }
@@ -174,18 +200,105 @@ app.delete('/api/admin/departments/:id', (req, res) => {
     });
 });
 
+// ══════════════ SEMESTER ENDPOINTS ════════════════════════════════════════════
+app.get('/api/semesters', (req, res) => {
+    db.all(`SELECT * FROM semesters ORDER BY id DESC`, [], (err, rows) => {
+        if (err) return res.status(500).json({ message: 'Failed' });
+        res.json(rows);
+    });
+});
+app.post('/api/admin/semesters', (req, res) => {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ message: 'Name required' });
+    db.run(`INSERT INTO semesters (name) VALUES (?)`, [name], function (err) {
+        if (err) return res.status(400).json({ message: 'Semester already exists or error.' });
+        res.json({ message: 'Created', id: this.lastID });
+    });
+});
+app.patch('/api/admin/semesters/:id/set-current', (req, res) => {
+    db.serialize(() => {
+        db.run(`UPDATE semesters SET is_current=0`);
+        db.run(`UPDATE semesters SET is_current=1 WHERE id=?`, [req.params.id], function (err) {
+            if (err || this.changes === 0) return res.status(404).json({ message: 'Not found' });
+            res.json({ message: 'Set as current' });
+        });
+    });
+});
+app.patch('/api/admin/semesters/:id/toggle-lock', (req, res) => {
+    db.run(`UPDATE semesters SET locked = CASE WHEN locked=1 THEN 0 ELSE 1 END WHERE id=?`,
+        [req.params.id], function (err) {
+            if (err || this.changes === 0) return res.status(404).json({ message: 'Not found' });
+            db.get(`SELECT locked FROM semesters WHERE id=?`, [req.params.id], (_, row) => {
+                res.json({ message: row.locked ? 'Locked' : 'Unlocked', locked: row.locked });
+            });
+        });
+});
+app.delete('/api/admin/semesters/:id', (req, res) => {
+    db.run(`DELETE FROM semesters WHERE id=?`, [req.params.id], function (err) {
+        if (err || this.changes === 0) return res.status(404).json({ message: 'Not found or failed' });
+        res.json({ message: 'Deleted' });
+    });
+});
+
 // ══════════════ STUDENT ═══════════════════════════════════════════════════════
 app.get('/api/students/:email', (req, res) => {
-    db.get(`SELECT id,name FROM users WHERE email=?`, [req.params.email], (err, user) => {
+    db.get(`SELECT id, name FROM users WHERE email=?`, [req.params.email], (err, user) => {
         if (err || !user) return res.status(404).json({ message: 'Student not found' });
-        db.all(`SELECT c.name AS course, c.credits, sg.grade FROM courses c
-                JOIN student_grades sg ON sg.course_id=c.id AND sg.student_id=?
-                ORDER BY c.id`, [user.id], (_, rows) => {
-            const grades = {};
-            rows.forEach(r => { grades[r.course] = { grade: r.grade || '', credits: r.credits || 3 }; });
-            const graded = rows.filter(r => r.grade).map(r => ({ grade: r.grade, credits: r.credits || 3 }));
-            const gpa = calculateGPA(graded);
-            res.json({ name: user.name, grades, gpa, gpaClass: gpa !== null ? gpaClassification(gpa) : null });
+        // Fetch all grade rows with semester and course info
+        db.all(`SELECT sg.id, sg.ca_mark, sg.exam_mark, sg.total, sg.grade, sg.semester_id,
+                       c.name AS course, c.credits,
+                       s.name AS semester_name
+                FROM student_grades sg
+                JOIN courses c ON c.id = sg.course_id
+                LEFT JOIN semesters s ON s.id = sg.semester_id
+                WHERE sg.student_id=?
+                ORDER BY sg.semester_id ASC, c.name ASC`, [user.id], (_, rows) => {
+            // Group by semester
+            const semesterMap = {};
+            rows.forEach(r => {
+                const key = r.semester_id || 'unassigned';
+                const semName = r.semester_name || 'Legacy Records (Unassigned Semester)';
+                if (!semesterMap[key]) semesterMap[key] = { id: key, name: semName, courses: [] };
+                semesterMap[key].courses.push({
+                    course: r.course, credits: r.credits || 3,
+                    ca_mark: r.ca_mark, exam_mark: r.exam_mark,
+                    total: r.total, grade: r.grade || '—'
+                });
+            });
+            // Compute per-semester stats
+            const semesters = Object.values(semesterMap).map(sem => {
+                const graded = sem.courses.filter(c => c.grade && c.grade !== '—');
+                const attemptedCredits = sem.courses.reduce((s, c) => s + (c.credits || 3), 0);
+                const earnedCredits = graded.filter(c => c.grade !== 'F').reduce((s, c) => s + (c.credits || 3), 0);
+                const gpa = calculateGPA(graded.map(c => ({ grade: c.grade, credits: c.credits || 3 })));
+                return { ...sem, attemptedCredits, earnedCredits, gpa, gpaClass: gpa !== null ? gpaClassification(gpa) : null };
+            });
+            // Cumulative stats across all rows (avoid double counting same course in multiple rows)
+            const courseStats = {};
+            rows.forEach(r => {
+                const cid = r.id; // Course name/id is better to group by
+                const credits = Number(r.credits || 3);
+                // If we have multiple entries for the same course (e.g. one unassigned, one graded), 
+                // we prioritize the one with a grade or a semester ID.
+                if (!courseStats[r.course] || (r.grade && r.grade !== '—')) {
+                    courseStats[r.course] = { grade: r.grade, credits: credits };
+                }
+            });
+
+            const uniqueCourses = Object.values(courseStats);
+            const allGraded = uniqueCourses.filter(c => c.grade && c.grade !== '—');
+            const cumulativeGpa = calculateGPA(allGraded);
+            const totalAttempted = uniqueCourses.reduce((s, c) => s + c.credits, 0);
+            const totalEarned = uniqueCourses.filter(c => c.grade && c.grade !== '—' && c.grade !== 'F').reduce((s, c) => s + c.credits, 0);
+            
+            res.json({ 
+                name: user.name, 
+                semesters, 
+                cumulativeGpa, 
+                cumulativeGpaClass: cumulativeGpa !== null ? gpaClassification(cumulativeGpa) : null,
+                totalAttempted,
+                totalEarned
+            });
         });
     });
 });
@@ -217,34 +330,38 @@ app.post('/api/students/:id/sync-enrollment', (req, res) => {
     const studentId = req.params.id;
     const newIds = courseIds.map(Number);
 
-    db.serialize(() => {
-        // Update name and department
-        db.run(`UPDATE users SET name=?, department_id=? WHERE id=?`, [name, departmentId, studentId]);
+    db.get(`SELECT id FROM semesters WHERE is_current=1 LIMIT 1`, [], (err, sem) => {
+        const currentSemesterId = sem ? sem.id : null;
+        
+        db.serialize(() => {
+            // Update name and department
+            db.run(`UPDATE users SET name=?, department_id=? WHERE id=?`, [name, departmentId, studentId]);
 
-        // Fetch current enrollments
-        db.all(`SELECT course_id FROM student_grades WHERE student_id=?`, [studentId], (err, rows) => {
-            const currentIds = rows.map(r => r.course_id);
+            // Fetch current enrollments
+            db.all(`SELECT course_id FROM student_grades WHERE student_id=?`, [studentId], (err, rows) => {
+                const currentIds = rows.map(r => r.course_id);
 
-            // Remove courses that are no longer selected (preserves grade rows for kept courses)
-            const toRemove = currentIds.filter(id => !newIds.includes(id));
-            if (toRemove.length > 0) {
-                const placeholders = toRemove.map(() => '?').join(',');
-                db.run(`DELETE FROM student_grades WHERE student_id=? AND course_id IN (${placeholders})`,
-                    [studentId, ...toRemove]);
-            }
+                // Remove courses that are no longer selected (preserves grade rows for kept courses)
+                const toRemove = currentIds.filter(id => !newIds.includes(id));
+                if (toRemove.length > 0) {
+                    const placeholders = toRemove.map(() => '?').join(',');
+                    db.run(`DELETE FROM student_grades WHERE student_id=? AND course_id IN (${placeholders})`,
+                        [studentId, ...toRemove]);
+                }
 
-            // Add only newly selected courses (INSERT OR IGNORE won't disturb existing grade rows)
-            const toAdd = newIds.filter(id => !currentIds.includes(id));
-            if (toAdd.length === 0) return res.json({ message: 'Enrollment synced successfully' });
+                // Add only newly selected courses (INSERT OR IGNORE won't disturb existing grade rows)
+                const toAdd = newIds.filter(id => !currentIds.includes(id));
+                if (toAdd.length === 0) return res.json({ message: 'Enrollment synced successfully' });
 
-            const stmt = db.prepare(`INSERT OR IGNORE INTO student_grades (student_id, course_id) VALUES (?, ?)`);
-            let rem = toAdd.length;
-            toAdd.forEach(cid => {
-                stmt.run(studentId, cid, () => {
-                    if (--rem === 0) {
-                        stmt.finalize();
-                        res.json({ message: 'Enrollment synced successfully' });
-                    }
+                const stmt = db.prepare(`INSERT OR IGNORE INTO student_grades (student_id, course_id, semester_id) VALUES (?, ?, ?)`);
+                let rem = toAdd.length;
+                toAdd.forEach(cid => {
+                    stmt.run(studentId, cid, currentSemesterId, () => {
+                        if (--rem === 0) {
+                            stmt.finalize();
+                            res.json({ message: 'Enrollment synced successfully' });
+                        }
+                    });
                 });
             });
         });
@@ -253,15 +370,32 @@ app.post('/api/students/:id/sync-enrollment', (req, res) => {
 
 app.get('/api/students', (req, res) => {
     const course = req.query.course;
+    const semesterId = req.query.semesterId || null;
     db.get(`SELECT id FROM courses WHERE name=?`, [course], (err, cRow) => {
         if (err || !cRow) return res.status(400).json({ message: 'Course not found' });
-        // BUG FIX: Only return students actually enrolled in the course (via student_grades)
-        db.all(`SELECT u.id, u.name FROM users u
-                JOIN student_grades sg ON sg.student_id=u.id AND sg.course_id=?
-                WHERE u.role='student'`, [cRow.id], (_, students) => {
+        
+        // Find students who are enrolled in this course, regardless of semester_id being set yet
+        let sql = `SELECT DISTINCT u.id, u.name FROM users u
+                   JOIN student_grades sg ON sg.student_id=u.id AND sg.course_id=?
+                   WHERE u.role='student'`;
+        const params = [cRow.id];
+        
+        db.all(sql, params, (_, students) => {
             const p = students.map(s => new Promise(resolve => {
-                db.get(`SELECT grade FROM student_grades WHERE student_id=? AND course_id=?`,
-                    [s.id, cRow.id], (_, row) => resolve({ id: s.id, name: s.name, grades: { [course]: row?.grade || '' } }));
+                // Look for grade row matching this specific semester, OR a row where semester is null (initial enrollment)
+                let q = `SELECT ca_mark, exam_mark, total, grade FROM student_grades 
+                         WHERE student_id=? AND course_id=? 
+                         AND (semester_id=? OR semester_id IS NULL)
+                         ORDER BY semester_id DESC LIMIT 1`;
+                const qp = [s.id, cRow.id, semesterId];
+                
+                db.get(q, qp, (_, row) => resolve({
+                    id: s.id, name: s.name,
+                    ca_mark: row?.ca_mark ?? '',
+                    exam_mark: row?.exam_mark ?? '',
+                    total: row?.total ?? '',
+                    grades: { [course]: row?.grade || '' }
+                }));
             }));
             Promise.all(p).then(r => res.json(r));
         });
@@ -269,15 +403,36 @@ app.get('/api/students', (req, res) => {
 });
 
 app.put('/api/students/:id', (req, res) => {
-    const { course, grade } = req.body;
-    db.get(`SELECT id FROM courses WHERE name=?`, [course], (_, row) => {
-        if (!row) return res.status(400).json({ message: 'Course not found' });
-        db.run(`INSERT INTO student_grades (student_id,course_id,grade) VALUES (?,?,?)
-                ON CONFLICT(student_id,course_id) DO UPDATE SET grade=excluded.grade`,
-            [req.params.id, row.id, grade], err => {
-                if (err) return res.status(500).json({ message: 'Failed' });
-                res.json({ message: 'Grade updated' });
-            });
+    const { course, semesterId, ca_mark, exam_mark } = req.body;
+    if (semesterId === undefined || semesterId === null) {
+        return res.status(400).json({ message: 'semesterId is required' });
+    }
+    // Check semester is not locked
+    db.get(`SELECT locked FROM semesters WHERE id=?`, [semesterId], (err, sem) => {
+        if (err || !sem) return res.status(404).json({ message: 'Semester not found' });
+        if (sem.locked) return res.status(403).json({ message: 'Semester is locked. Grades cannot be modified.' });
+        
+        const ca = ca_mark !== '' ? parseFloat(ca_mark) : null;
+        const exam = exam_mark !== '' ? parseFloat(exam_mark) : null;
+        
+        if (ca !== null && (isNaN(ca) || ca < 0 || ca > 30)) return res.status(400).json({ message: 'CA mark must be 0–30' });
+        if (exam !== null && (isNaN(exam) || exam < 0 || exam > 70)) return res.status(400).json({ message: 'Exam mark must be 0–70' });
+        
+        const total = (ca !== null || exam !== null) ? parseFloat(((ca || 0) + (exam || 0)).toFixed(2)) : null;
+        const grade = (ca !== null && exam !== null) ? totalToGrade(total, true) : '—';
+        
+        db.get(`SELECT id FROM courses WHERE name=?`, [course], (_, row) => {
+            if (!row) return res.status(400).json({ message: 'Course not found' });
+            db.run(`INSERT INTO student_grades (student_id, course_id, semester_id, ca_mark, exam_mark, total, grade)
+                    VALUES (?,?,?,?,?,?,?)
+                    ON CONFLICT(student_id, course_id, semester_id) DO UPDATE SET
+                        ca_mark=excluded.ca_mark, exam_mark=excluded.exam_mark,
+                        total=excluded.total, grade=excluded.grade`,
+                [req.params.id, row.id, semesterId, ca, exam, total, grade], err => {
+                    if (err) return res.status(500).json({ message: 'Failed: ' + err.message });
+                    res.json({ message: 'Grade updated', grade, total });
+                });
+        });
     });
 });
 
