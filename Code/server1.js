@@ -4,6 +4,15 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 const cors = require('cors');
 const os = require('os');
+const fs = require('fs');
+const multer = require('multer');
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = 'SuperSecretOfflineSchoolKey123!';
+
+const backupDir = path.join(__dirname, 'backups');
+if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir);
+const upload = multer({ dest: os.tmpdir() });
 
 const app = express();
 const PORT = 3000;
@@ -12,7 +21,7 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-const db = new sqlite3.Database('./studenthub.db', err => {
+let db = new sqlite3.Database('./studenthub.db', err => {
     if (err) return console.error('DB error:', err.message);
     console.log('Connected to SQLite database');
 });
@@ -153,13 +162,48 @@ app.post('/api/login', (req, res) => {
             isMatch = await bcrypt.compare(password, user.password);
         } catch (e) { }
 
-        // Fallback for legacy plaintext passwords during the transition
         if (!isMatch && password === user.password) isMatch = true;
 
         if (!isMatch) return res.status(400).json({ message: 'Invalid credentials' });
-        res.json({ user });
+        
+        // Generate JWT
+        const token = jwt.sign(
+            { id: user.id, email: user.email, role: user.role },
+            JWT_SECRET,
+            { expiresIn: '24h' }
+        );
+
+        res.json({ user, token });
     });
 });
+
+// ══════════════ SECURITY MIDDLEWARES ══════════════════════════════════════════
+function authenticateToken(req, res, next) {
+    const authHeader = req.headers['authorization'];
+    const token = authHeader && authHeader.split(' ')[1];
+    if (!token) return res.status(401).json({ message: 'Unauthorized: Missing token' });
+
+    jwt.verify(token, JWT_SECRET, (err, user) => {
+        if (err) return res.status(403).json({ message: 'Forbidden: Invalid token' });
+        req.user = user;
+        next();
+    });
+}
+
+function requireAdmin(req, res, next) {
+    if (req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden: Admins only' });
+    next();
+}
+
+function requireTeacher(req, res, next) {
+    if (req.user.role !== 'teacher' && req.user.role !== 'admin') return res.status(403).json({ message: 'Forbidden: Teachers/Admins only' });
+    next();
+}
+
+// ── Protect API Route Prefixes Globally ──
+app.use(['/api/admin', '/api/teachers', '/api/students', '/api/semesters', '/api/complaints', '/api/report-issue'], authenticateToken);
+app.use('/api/admin', requireAdmin);
+app.use('/api/teachers', requireTeacher);
 
 // ══════════════ DEPARTMENTS ═══════════════════════════════════════════════════
 app.get('/api/departments', (req, res) => {
@@ -676,6 +720,42 @@ app.get('/api/admin/seed', (req, res) => {
         }
     });
 });
+
+// ── Database Backup & Restore ────────────────────────────────────────────────
+app.get('/api/admin/backup', (req, res) => {
+    const file = path.join(__dirname, 'studenthub.db');
+    res.download(file, `studenthub_backup_${new Date().toISOString().slice(0,10)}.db`);
+});
+
+app.post('/api/admin/restore', upload.single('dbfile'), (req, res) => {
+    if (!req.file) return res.status(400).json({ message: 'No file uploaded' });
+    
+    db.close((err) => {
+        if (err) console.error("Error closing DB for restore:", err);
+        try {
+            fs.copyFileSync(req.file.path, path.join(__dirname, 'studenthub.db'));
+            fs.unlinkSync(req.file.path);
+            
+            db = new sqlite3.Database('./studenthub.db', e => {
+                if (e) return res.status(500).json({ message: 'Error reconnecting to DB' });
+                console.log('Database restored and reconnected successfully.');
+                res.json({ message: 'Database restored successfully' });
+            });
+        } catch(e) {
+            console.error(e);
+            res.status(500).json({ message: 'Failed to copy database file' });
+        }
+    });
+});
+
+setInterval(() => {
+    try {
+        const dStr = new Date().toISOString().slice(0,10);
+        const bPath = path.join(backupDir, `studenthub_backup_${dStr}.db`);
+        fs.copyFileSync(path.join(__dirname, 'studenthub.db'), bPath);
+        console.log(`[SYS] Automated backup created: ${bPath}`);
+    } catch(e) { console.error(`[SYS] Automated backup failed:`, e); }
+}, 24 * 60 * 60 * 1000);
 
 // ══════════════ START ═════════════════════════════════════════════════════════
 const qrcode = require('qrcode-terminal');

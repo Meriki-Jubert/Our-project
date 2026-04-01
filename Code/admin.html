@@ -321,6 +321,31 @@
             </div>
         </section>
 
+        <!-- Database Backup & Restore -->
+        <section class="admin-card">
+            <div class="admin-card-header">
+                <h2><i class="fas fa-database"></i> System Backup & Restore</h2>
+            </div>
+            <div style="padding: 15px; display: flex; gap: 20px; flex-wrap: wrap;">
+                <div style="flex:1; background:#f8f9fc; padding: 15px; border-radius:8px; border:1px solid #e8ecf0;">
+                    <h3 style="margin-top:0;"><i class="fas fa-download"></i> Download Backup</h3>
+                    <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">Download a complete copy of the SQLite database containing all students, courses, grades, and system settings.</p>
+                    <a href="/api/admin/backup" class="btn btn-sm btn-success" style="text-decoration:none; display:inline-block;"><i class="fas fa-save"></i> Download Database</a>
+                    
+                    <p style="font-size:0.8rem; color:#888; margin-top:15px;"><i class="fas fa-info-circle"></i> An automated backup is also saved to the server's <code>backups/</code> folder every 24 hours.</p>
+                </div>
+                
+                <div style="flex:1; background:#fff5f5; padding: 15px; border-radius:8px; border:1px solid #fed7d7;">
+                    <h3 style="color:#c53030; margin-top:0;"><i class="fas fa-upload"></i> Restore System</h3>
+                    <p style="font-size:0.9rem; color:#666; margin-bottom:15px;">Upload a previously downloaded <code>studenthub.db</code> file to completely overwrite the current system state.</p>
+                    <form id="restoreBackupForm" style="display:flex; gap:10px; align-items:center;">
+                        <input type="file" id="dbfile" accept=".db" required style="font-size:0.9rem;">
+                        <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-exclamation-triangle"></i> Restore Data</button>
+                    </form>
+                </div>
+            </div>
+        </section>
+
         <!-- Feedback Inbox -->
         <section class="admin-card">
             <div class="admin-card-header">
@@ -451,6 +476,20 @@
     </footer>
 
     <script>
+        // ── HTTP Interceptor for JWT ────────────────────────────────
+        const originalFetch = window.fetch;
+        window.fetch = async function(...args) {
+            let [resource, config] = args;
+            config = config || {};
+            if (typeof resource === 'string' && resource.startsWith('/api')) {
+                const token = localStorage.getItem('authToken');
+                if (token) {
+                    config.headers = { ...config.headers, 'Authorization': `Bearer ${token}` };
+                }
+            }
+            return originalFetch(resource, config);
+        };
+
         document.addEventListener('DOMContentLoaded', async function () {
 
             // ── Auth guard ──────────────────────────────────────────────
@@ -927,6 +966,80 @@
                 if (!res.ok) return alert('Failed to update user.');
                 closeModal('editUserModal');
                 refreshAll();
+            });
+
+            // ── Database Backup Restore ────────────────────────────────────────────
+            document.getElementById('restoreBackupForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const fileInput = document.getElementById('dbfile');
+                if (!fileInput.files.length) return alert('Please select a database file.');
+                if (!confirm('WARNING: Restoring will overwrite all current system data and disconnect all users. Are you absolutely sure?')) return;
+                
+                const formData = new FormData();
+                formData.append('dbfile', fileInput.files[0]);
+                
+                const btn = e.target.querySelector('button');
+                btn.disabled = true;
+                btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Restoring...';
+
+                try {
+                    const res = await fetch('/api/admin/restore', { method: 'POST', body: formData });
+                    const data = await res.json();
+                    if(res.ok) {
+                        alert(data.message + '. Refreshing page...');
+                        window.location.reload();
+                    } else {
+                        alert(data.message || 'Failed to restore database.');
+                        btn.disabled = false;
+                        btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Restore Data';
+                    }
+                } catch(err) {
+                    alert('An error occurred during restore.');
+                    btn.disabled = false;
+                    btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Restore Data';
+                }
+            });
+
+            // ── Card Collapse/Expand UX ────────────────────────────────────────────
+            document.querySelectorAll('.admin-card-header').forEach(header => {
+                header.style.cursor = 'pointer';
+                const icon = document.createElement('i');
+                icon.className = 'fas fa-chevron-up';
+                icon.style.marginLeft = '15px';
+                icon.style.transition = 'transform 0.3s ease';
+                
+                // Keep the button (if any) and the icon together on the right
+                const rightControls = document.createElement('div');
+                rightControls.style.display = 'flex';
+                rightControls.style.alignItems = 'center';
+                
+                const existingBtn = header.querySelector('button');
+                if (existingBtn) {
+                    rightControls.appendChild(existingBtn);
+                }
+                rightControls.appendChild(icon);
+                header.appendChild(rightControls);
+
+                header.addEventListener('click', (e) => {
+                    if (e.target.closest('button')) return; // ignore clicks on action buttons
+                    
+                    const isCollapsed = header.classList.toggle('collapsed');
+                    icon.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+                    
+                    let sibling = header.nextElementSibling;
+                    while (sibling) {
+                        // ignore modals that are fixed overlay
+                        if (!sibling.classList.contains('modal-overlay')) {
+                            if (isCollapsed) {
+                                sibling.dataset.oldDisplay = getComputedStyle(sibling).display;
+                                sibling.style.display = 'none';
+                            } else {
+                                sibling.style.display = sibling.dataset.oldDisplay || '';
+                            }
+                        }
+                        sibling = sibling.nextElementSibling;
+                    }
+                });
             });
 
             // ── Base ────────────────────────────────────────────────────

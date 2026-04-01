@@ -1,5 +1,19 @@
 // student.js
 
+// ── HTTP Interceptor for JWT ────────────────────────────────
+const originalFetch = window.fetch;
+window.fetch = async function(...args) {
+    let [resource, config] = args;
+    config = config || {};
+    if (typeof resource === 'string' && resource.startsWith('/api')) {
+        const token = localStorage.getItem('authToken');
+        if (token) {
+            config.headers = { ...config.headers, 'Authorization': `Bearer ${token}` };
+        }
+    }
+    return originalFetch(resource, config);
+};
+
 document.addEventListener('DOMContentLoaded', async function () {
     // Contact button 
     document.querySelectorAll('.emailButton').forEach(btn => {
@@ -163,6 +177,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         const loginData = await loginRes.json();
         if (!loginRes.ok) return alert(loginData.message || 'Login failed after signup');
         localStorage.setItem('currentUser', JSON.stringify(loginData.user));
+        localStorage.setItem('authToken', loginData.token);
         const _r1 = loginData.user.role; window.location.href = _r1 === 'teacher' ? 'teacher.html' : _r1 === 'admin' ? 'admin.html' : 'student.html';
     });
 
@@ -182,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async function () {
         if (!res.ok) return alert(data.message || 'Invalid email or password');
 
         localStorage.setItem('currentUser', JSON.stringify(data.user));
+        localStorage.setItem('authToken', data.token);
         const _r2 = data.user.role; window.location.href = _r2 === 'teacher' ? 'teacher.html' : _r2 === 'admin' ? 'admin.html' : 'student.html';
     });
 
